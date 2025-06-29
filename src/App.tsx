@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Calculator, Camera } from 'lucide-react';
-import { VerticalSlider } from './components/VerticalSlider';
-import { SimpleProfitDisplay } from './components/SimpleProfitDisplay';
-import { CostContainer } from './components/CostContainer';
+import { Calculator, Zap } from 'lucide-react';
+import { MarginControls } from './components/MarginControls';
+import { QuoteDisplay } from './components/QuoteDisplay';
+import { ProfitSummary } from './components/ProfitSummary';
 import { useQuoteCalculations } from './hooks/useQuoteCalculations';
 import { sampleQuoteData } from './data/sampleQuote';
 import { MarginSettings } from './types/quote';
@@ -17,157 +17,72 @@ function App() {
   });
 
   const results = useQuoteCalculations(sampleQuoteData, marginSettings);
-  const bigTicketItem = sampleQuoteData.lineItems.find(item => item.isBigTicket);
-
-  const handleLabourChange = (value: number) => {
-    setMarginSettings(prev => ({ ...prev, labourMargin: value }));
-  };
-
-  const handleMaterialChange = (value: number) => {
-    setMarginSettings(prev => ({ ...prev, materialMargin: value }));
-  };
-
-  const handleBigTicketChange = (value: number) => {
-    if (bigTicketItem) {
-      setMarginSettings(prev => ({
-        ...prev,
-        bigTicketMargins: { ...prev.bigTicketMargins, [bigTicketItem.id]: value }
-      }));
-    }
-  };
-
-  const handleTakePhoto = () => {
-    // Placeholder for photo functionality
-    console.log('Take photo clicked');
-  };
-
-  const bigTicketMargin = bigTicketItem ? 
-    (marginSettings.bigTicketMargins[bigTicketItem.id] ?? bigTicketItem.markup) : 0;
-
-  // Calculate adjusted items for cost containers
-  const getAdjustedItems = () => {
-    return sampleQuoteData.lineItems.map(item => {
-      let adjustedMarkup = item.markup;
-      
-      if (item.isBigTicket && marginSettings.bigTicketMargins[item.id] !== undefined) {
-        adjustedMarkup = marginSettings.bigTicketMargins[item.id];
-      } else if (item.type === 'labour') {
-        adjustedMarkup = marginSettings.labourMargin;
-      } else if (item.type === 'material' && !item.isBigTicket) {
-        adjustedMarkup = marginSettings.materialMargin;
-      }
-
-      const adjustedPrice = item.cost * (1 + adjustedMarkup / 100);
-      
-      return {
-        ...item,
-        adjustedPrice,
-        adjustedMarkup
-      };
-    });
-  };
-
-  const adjustedItems = getAdjustedItems();
-  const labourItems = adjustedItems.filter(item => item.type === 'labour');
-  const materialItems = adjustedItems.filter(item => item.type === 'material' && !item.isBigTicket);
-  const bigTicketItems = adjustedItems.filter(item => item.isBigTicket);
-
-  const labourTotalCost = labourItems.reduce((sum, item) => sum + (item.cost * item.quantity), 0);
-  const labourTotalPrice = labourItems.reduce((sum, item) => sum + (item.adjustedPrice * item.quantity), 0);
-
-  const materialTotalCost = materialItems.reduce((sum, item) => sum + (item.cost * item.quantity), 0);
-  const materialTotalPrice = materialItems.reduce((sum, item) => sum + (item.adjustedPrice * item.quantity), 0);
-
-  const bigTicketTotalCost = bigTicketItems.reduce((sum, item) => sum + (item.cost * item.quantity), 0);
-  const bigTicketTotalPrice = bigTicketItems.reduce((sum, item) => sum + (item.adjustedPrice * item.quantity), 0);
+  const bigTicketItems = sampleQuoteData.lineItems.filter(item => item.isBigTicket);
 
   return (
-    <div className="min-h-screen bg-gray-900 p-4">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-gray-800 rounded-lg shadow-lg p-4 mb-4 border border-gray-700">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-900 rounded-lg">
-              <Calculator className="w-6 h-6 text-blue-400" />
+      <div className="bg-white border-b shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Calculator className="w-6 h-6 text-blue-600" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">
+                  Margin Impact Simulator
+                </h1>
+                <p className="text-sm text-gray-600">
+                  Analyze quote profitability in real-time
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-100">Margin Simulator</h1>
-              <p className="text-sm text-gray-400">Adjust margins to see profit impact</p>
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <Zap className="w-4 h-4 text-green-500" />
+              <span>Live calculations</span>
             </div>
           </div>
-          
-          <button 
-            onClick={handleTakePhoto}
-            className="p-3 bg-gray-700 hover:bg-gray-600 rounded-lg border border-gray-600 transition-colors"
-            title="Take Photo"
-          >
-            <Camera className="w-6 h-6 text-gray-300" />
-          </button>
         </div>
       </div>
 
-      {/* Main Content - Landscape Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Controls */}
-        <div className="bg-gray-800 rounded-lg shadow-lg p-4 border border-gray-700">
-          <h2 className="text-lg font-bold text-gray-100 mb-4">Margin Controls</h2>
-          
-          <div className="grid grid-cols-3 gap-4 h-64 mb-4">
-            <VerticalSlider
-              label="Labour"
-              value={marginSettings.labourMargin}
-              onChange={handleLabourChange}
-              min={0}
-              max={150}
-            />
-            
-            <VerticalSlider
-              label="Materials"
-              value={marginSettings.materialMargin}
-              onChange={handleMaterialChange}
-              min={0}
-              max={150}
-            />
-            
-            <VerticalSlider
-              label="Heat Pump"
-              value={bigTicketMargin}
-              onChange={handleBigTicketChange}
-              min={0}
-              max={150}
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column - Controls */}
+          <div className="lg:col-span-1">
+            <MarginControls
+              marginSettings={marginSettings}
+              onMarginChange={setMarginSettings}
+              bigTicketItems={bigTicketItems}
             />
           </div>
 
-          {/* Cost Containers */}
-          <div className="grid grid-cols-3 gap-4">
-            <CostContainer
-              title="Labour"
-              items={labourItems}
-              totalCost={labourTotalCost}
-              totalPrice={labourTotalPrice}
-              margin={marginSettings.labourMargin}
-            />
-            
-            <CostContainer
-              title="Materials"
-              items={materialItems}
-              totalCost={materialTotalCost}
-              totalPrice={materialTotalPrice}
-              margin={marginSettings.materialMargin}
-            />
-            
-            <CostContainer
-              title="Heat Pump"
-              items={bigTicketItems}
-              totalCost={bigTicketTotalCost}
-              totalPrice={bigTicketTotalPrice}
-              margin={bigTicketMargin}
+          {/* Right Column - Results */}
+          <div className="lg:col-span-2 space-y-8">
+            <ProfitSummary results={results} />
+            <QuoteDisplay 
+              quoteData={sampleQuoteData} 
+              marginSettings={marginSettings}
             />
           </div>
         </div>
+      </div>
 
-        {/* Results */}
-        <SimpleProfitDisplay results={results} />
+      {/* Footer */}
+      <div className="bg-white border-t mt-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-between text-sm text-gray-600">
+            <div>
+              Margin Impact Simulator • Built for trade professionals
+            </div>
+            <div className="flex items-center gap-4">
+              <span>Sample Quote Data</span>
+              <span>•</span>
+              <span>Real-time Calculations</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
