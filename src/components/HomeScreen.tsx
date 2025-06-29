@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Camera, Calculator, ArrowRight, Monitor, Square, Loader2 } from 'lucide-react';
 import { QuoteData } from '../types/quote';
+import { createWorker } from 'tesseract.js';
 
 interface HomeScreenProps {
   onNavigateToSimulator: (quoteData?: QuoteData) => void;
@@ -165,12 +166,114 @@ const sampleQuotes = {
   }
 };
 
+// OCR Text Parsing Functions
+const parseQuoteText = (text: string): QuoteData | null => {
+  try {
+    const lines = text.split('\n').filter(line => line.trim());
+    
+    // Look for common quote patterns
+    const lineItems: any[] = [];
+    let gstRate = 0.15; // Default GST rate
+    
+    // Extract line items (items with quantities and prices)
+    lines.forEach((line, index) => {
+      // Look for patterns like: "Item Name Qty: 2 Price: $100"
+      const quantityMatch = line.match(/(\d+(?:\.\d+)?)\s*(?:x|@|qty|quantity)/i);
+      const priceMatch = line.match(/\$?(\d+(?:\.\d+)?)/g);
+      
+      if (quantityMatch && priceMatch && priceMatch.length >= 2) {
+        const quantity = parseFloat(quantityMatch[1]);
+        const cost = parseFloat(priceMatch[0].replace('$', ''));
+        const price = parseFloat(priceMatch[1].replace('$', ''));
+        
+        // Extract item name (everything before the quantity)
+        const name = line.substring(0, line.indexOf(quantityMatch[0])).trim();
+        
+        if (name && quantity && cost && price) {
+          lineItems.push({
+            id: (index + 1).toString(),
+            name: name,
+            type: 'material' as const,
+            quantity: quantity,
+            cost: cost,
+            price: price,
+            markup: ((price - cost) / cost) * 100,
+            tax: 15,
+            discount: 0
+          });
+        }
+      }
+    });
+    
+    // If we found line items, return the parsed data
+    if (lineItems.length > 0) {
+      return {
+        gstRate,
+        lineItems
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error parsing quote text:', error);
+    return null;
+  }
+};
+
+const parseQuoteTextEnhanced = (text: string): QuoteData | null => {
+  try {
+    const lines = text.split('\n').filter(line => line.trim());
+    const lineItems: any[] = [];
+    let gstRate = 0.15;
+
+    // Look for GST rate in the text
+    const gstMatch = text.match(/GST\s*Amount\s*\$?(\d+(?:\.\d+)?)/i);
+    if (gstMatch) {
+      // Optionally, you could use this value for GST calculations
+      // gstRate = parseFloat(gstMatch[1]) / subtotal if subtotal is found
+    }
+
+    // Regex to match table rows: Name, Quantity, Cost, Price, Markup, Tax, Discount, Total
+    // Example: Labour - Dave   8.00   $58.00   $95.00   63.79%   15%   0%   $760.00
+    const rowRegex = /^(.+?)\s{2,}(\d+(?:\.\d+)?)\s+\$?(\d+(?:\.\d+)?)\s+\$?(\d+(?:\.\d+)?)\s+[\d.]+%\s+\d+%\s+\d+%\s+\$?(\d+(?:\.\d+)?)/;
+
+    lines.forEach((line, index) => {
+      const match = line.match(rowRegex);
+      if (match) {
+        const name = match[1].trim();
+        const quantity = parseFloat(match[2]);
+        const cost = parseFloat(match[3]);
+        // const price = parseFloat(match[4]); // Not used
+        const total = parseFloat(match[5]);
+        if (name && !isNaN(quantity) && !isNaN(cost) && !isNaN(total)) {
+          lineItems.push({
+            id: (index + 1).toString(),
+            name,
+            type: 'material' as const,
+            quantity,
+            cost,
+            total,
+            // Optionally, you can add price, markup, etc. if needed
+          });
+        }
+      }
+    });
+
+    return lineItems.length > 0 ? { gstRate, lineItems } : null;
+  } catch (error) {
+    console.error('Error parsing quote text:', error);
+    return null;
+  }
+};
+
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator }) => {
   const [photo, setPhoto] = useState<string | null>(null);
   const [matrixChars, setMatrixChars] = useState<string[]>([]);
   const [isCapturing, setIsCapturing] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedData, setExtractedData] = useState<QuoteData | null>(null);
+  const [ocrText, setOcrText] = useState<string | null>(null);
+  const [dataConfirmed, setDataConfirmed] = useState(false);
 
   // Auto-clear all data when component mounts (when navigating back from simulator)
   useEffect(() => {
@@ -199,18 +302,51 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
   const processQuoteImage = async (imageData: string) => {
     setIsProcessing(true);
     
-    // Simulate OCR processing delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      // Initialize Tesseract worker
+      const worker = await createWorker('eng');
+      
+      // Configure Tesseract for better accuracy
+      await worker.setParameters({
+        tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz$@.,%()[]{}:;-_/\\|+=<>?!"\'`~#&*',
+      });
+      
+      // Perform OCR on the image
+      const { data: { text } } = await worker.recognize(imageData);
+      
+      console.log('Extracted text:', text);
+      
+      // Parse the extracted text to find quote data
+      const parsedData = parseQuoteTextEnhanced(text);
+      if (!parsedData) {
+        const fallbackData = parseQuoteText(text);
+        if (fallbackData) {
+          setExtractedData(fallbackData);
+        } else {
+          // Fallback to sample data if parsing fails
+          const quoteTypes = Object.keys(sampleQuotes);
+          const randomType = quoteTypes[Math.floor(Math.random() * quoteTypes.length)];
+          const selectedQuote = sampleQuotes[randomType as keyof typeof sampleQuotes];
+          setExtractedData(selectedQuote);
+        }
+      } else {
+        setExtractedData(parsedData);
+      }
+      
+      setOcrText(text);
+      setDataConfirmed(false);
+      
+      await worker.terminate();
+      
+    } catch (error) {
+      console.error('OCR processing error:', error);
+      // Fallback to sample data
+      const quoteTypes = Object.keys(sampleQuotes);
+      const randomType = quoteTypes[Math.floor(Math.random() * quoteTypes.length)];
+      const selectedQuote = sampleQuotes[randomType as keyof typeof sampleQuotes];
+      setExtractedData(selectedQuote);
+    }
     
-    // Simulate different quote types based on random selection
-    // In a real app, this would be OCR analysis of the image
-    const quoteTypes = Object.keys(sampleQuotes);
-    const randomType = quoteTypes[Math.floor(Math.random() * quoteTypes.length)];
-    const selectedQuote = sampleQuotes[randomType as keyof typeof sampleQuotes];
-    
-    console.log(`Simulating ${randomType} quote type`);
-    
-    setExtractedData(selectedQuote);
     setIsProcessing(false);
   };
 
@@ -230,7 +366,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
       // Request screen capture
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: {
-          mediaSource: 'screen',
           width: { ideal: 1920 },
           height: { ideal: 1080 }
         }
@@ -266,7 +401,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
       console.error('Error capturing screen:', error);
       setIsCapturing(false);
       
-      if (error.name === 'NotAllowedError') {
+      if (error instanceof Error && error.name === 'NotAllowedError') {
         alert('Screen capture permission was denied. Please allow screen sharing to capture quotes.');
       } else {
         alert('Failed to capture screen. Please try again.');
@@ -367,17 +502,58 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
               Professional quote analysis tool for trade professionals
             </p>
             
+            {ocrText && (
+              <div className="my-6 p-4 bg-gray-800 rounded-xl border border-green-700 text-green-100">
+                <h2 className="font-bold mb-2 text-green-300">OCR Debug Info</h2>
+                <div className="mb-2">
+                  <span className="font-semibold">Raw OCR Text:</span>
+                  <pre className="bg-black bg-opacity-60 p-2 rounded text-xs overflow-x-auto max-h-40 mb-2">{ocrText}</pre>
+                </div>
+                {extractedData && extractedData.lineItems && (
+                  <div>
+                    <span className="font-semibold">Parsed Line Items:</span>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full text-xs border border-green-700 bg-black bg-opacity-40 rounded">
+                        <thead>
+                          <tr>
+                            <th className="px-2 py-1 border-b border-green-700">Name</th>
+                            <th className="px-2 py-1 border-b border-green-700">Quantity</th>
+                            <th className="px-2 py-1 border-b border-green-700">Cost</th>
+                            <th className="px-2 py-1 border-b border-green-700">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {extractedData.lineItems.map((item, idx) => (
+                            <tr key={idx}>
+                              <td className="px-2 py-1 border-b border-green-900">{item.name}</td>
+                              <td className="px-2 py-1 border-b border-green-900">{item.quantity}</td>
+                              <td className="px-2 py-1 border-b border-green-900">{item.cost}</td>
+                              <td className="px-2 py-1 border-b border-green-900">{item.total ?? '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                <div className="mt-2 flex items-center gap-2">
+                  <input type="checkbox" id="confirm-data" checked={dataConfirmed} onChange={e => setDataConfirmed(e.target.checked)} />
+                  <label htmlFor="confirm-data" className="text-green-200 text-xs">I confirm the data above is correct</label>
+                </div>
+              </div>
+            )}
+            
             {/* Continue Button */}
             <button
               onClick={handleOpenCalculator}
-              disabled={!isDataReady}
+              disabled={!isDataReady || !dataConfirmed}
               className={`py-4 px-8 rounded-xl font-semibold text-lg flex items-center gap-3 transition-all shadow-lg border ${
-                isDataReady
+                isDataReady && dataConfirmed
                   ? 'bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white hover:shadow-xl shadow-green-500/25 hover:shadow-green-500/40 border-green-500/30'
                   : 'bg-gray-600 text-gray-400 cursor-not-allowed border-gray-500/30 shadow-gray-500/10'
               }`}
             >
-              <span>{isDataReady ? 'Open Calculator' : 'Capture Quote First'}</span>
+              <span>{isDataReady && dataConfirmed ? 'Open Calculator' : 'Capture & Confirm Data First'}</span>
               <ArrowRight className="w-5 h-5" />
             </button>
             

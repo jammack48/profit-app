@@ -10,6 +10,7 @@ export interface QuoteLineItem {
   discount: number;
   isBigTicket?: boolean;
   maxMarkup?: number;
+  total?: number;
 }
 
 export interface QuoteData {
