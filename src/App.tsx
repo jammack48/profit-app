@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { HomeScreen } from './components/HomeScreen';
 import { SimulatorScreen } from './components/SimulatorScreen';
 import { QuoteData } from './types/quote';
-import GoogleOcrDemo from './components/GoogleOcrDemo';
 
 export type Screen = 'home' | 'simulator';
 
@@ -23,19 +22,16 @@ function App() {
   };
 
   return (
-    <>
-      <GoogleOcrDemo />
-      <div className="min-h-screen bg-gray-900">
-        {currentScreen === 'home' ? (
-          <HomeScreen onNavigateToSimulator={navigateToSimulator} />
-        ) : (
-          <SimulatorScreen 
-            onNavigateToHome={navigateToHome} 
-            quoteData={currentQuoteData}
-          />
-        )}
-      </div>
-    </>
+    <div className="min-h-screen bg-gray-900">
+      {currentScreen === 'home' ? (
+        <HomeScreen onNavigateToSimulator={navigateToSimulator} />
+      ) : (
+        <SimulatorScreen 
+          onNavigateToHome={navigateToHome} 
+          quoteData={currentQuoteData}
+        />
+      )}
+    </div>
   );
 }
 
