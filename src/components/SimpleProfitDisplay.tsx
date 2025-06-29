@@ -42,12 +42,6 @@ export const SimpleProfitDisplay: React.FC<SimpleProfitDisplayProps> = ({ result
           <span className="text-green-400">Profit</span>
           <span className="font-bold text-green-400">{formatCurrency(results.grossProfit)}</span>
         </div>
-
-        {/* Sale Price */}
-        <div className="flex justify-between items-center py-3 bg-gray-700 rounded-lg px-4 mt-4">
-          <span className="text-lg font-bold text-gray-100">Sale Price</span>
-          <span className="text-2xl font-bold text-blue-400">{formatCurrency(results.total)}</span>
-        </div>
       </div>
 
       {/* Additional Details */}
@@ -59,6 +53,12 @@ export const SimpleProfitDisplay: React.FC<SimpleProfitDisplayProps> = ({ result
         <div className="flex justify-between text-sm">
           <span className="text-gray-400">GST (15%):</span>
           <span className="font-medium text-gray-200">{formatCurrency(results.gstAmount)}</span>
+        </div>
+        
+        {/* Sale Price moved here */}
+        <div className="flex justify-between items-center py-3 bg-gray-700 rounded-lg px-4">
+          <span className="text-lg font-bold text-gray-100">Sale Price</span>
+          <span className="text-2xl font-bold text-blue-400">{formatCurrency(results.total)}</span>
         </div>
       </div>
     </div>

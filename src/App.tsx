@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calculator } from 'lucide-react';
+import { Calculator, Camera } from 'lucide-react';
 import { VerticalSlider } from './components/VerticalSlider';
 import { SimpleProfitDisplay } from './components/SimpleProfitDisplay';
 import { CostContainer } from './components/CostContainer';
@@ -34,6 +34,11 @@ function App() {
         bigTicketMargins: { ...prev.bigTicketMargins, [bigTicketItem.id]: value }
       }));
     }
+  };
+
+  const handleTakePhoto = () => {
+    // Placeholder for photo functionality
+    console.log('Take photo clicked');
   };
 
   const bigTicketMargin = bigTicketItem ? 
@@ -80,14 +85,24 @@ function App() {
     <div className="min-h-screen bg-gray-900 p-4">
       {/* Header */}
       <div className="bg-gray-800 rounded-lg shadow-lg p-4 mb-4 border border-gray-700">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-900 rounded-lg">
-            <Calculator className="w-6 h-6 text-blue-400" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-900 rounded-lg">
+              <Calculator className="w-6 h-6 text-blue-400" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-100">Margin Simulator</h1>
+              <p className="text-sm text-gray-400">Adjust margins to see profit impact</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-100">Margin Simulator</h1>
-            <p className="text-sm text-gray-400">Adjust margins to see profit impact</p>
-          </div>
+          
+          <button 
+            onClick={handleTakePhoto}
+            className="p-3 bg-gray-700 hover:bg-gray-600 rounded-lg border border-gray-600 transition-colors"
+            title="Take Photo"
+          >
+            <Camera className="w-6 h-6 text-gray-300" />
+          </button>
         </div>
       </div>
 
