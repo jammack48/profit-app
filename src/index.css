@@ -9,6 +9,13 @@
   }
 }
 
+/* Matrix scanning animation */
+@keyframes scan {
+  0% { top: 0%; opacity: 0; }
+  50% { opacity: 0.3; }
+  100% { top: 100%; opacity: 0; }
+}
+
 /* Vertical slider styles for dark mode */
 .vertical-slider {
   -webkit-appearance: slider-vertical;
