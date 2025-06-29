@@ -172,6 +172,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
   const handleScreenCapture = async () => {
     try {
       setIsCapturing(true);
+      // Clear previous data immediately when starting new capture
+      setExtractedData(null);
       
       // Check if Screen Capture API is supported
       if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
@@ -228,6 +230,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
   };
 
   const handleFileUpload = async () => {
+    // Clear previous data immediately when starting new upload
+    setExtractedData(null);
+    
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
@@ -423,7 +428,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
                 {isProcessing ? 
                   'Extracting quote data from image...' :
                   photo ? 
-                    'Quote captured! Processing complete.' : 
+                    (extractedData ? 'Quote captured! Processing complete.' : 'Processing new quote...') : 
                     'Capture your quote directly from screen or upload an image'
                 }
               </p>
