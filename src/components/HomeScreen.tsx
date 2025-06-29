@@ -221,49 +221,38 @@ const parseQuoteText = (text: string): QuoteData | null => {
 };
 
 const parseQuoteTextEnhanced = (text: string): QuoteData | null => {
-  try {
-    const lines = text.split('\n').filter(line => line.trim());
-    const lineItems: any[] = [];
-    let gstRate = 0.15;
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const lineItems: any[] = [];
 
-    // Look for GST rate in the text
-    const gstMatch = text.match(/GST\s*Amount\s*\$?(\d+(?:\.\d+)?)/i);
-    if (gstMatch) {
-      // Optionally, you could use this value for GST calculations
-      // gstRate = parseFloat(gstMatch[1]) / subtotal if subtotal is found
-    }
-
-    // Regex to match table rows: Name, Quantity, Cost, Price, Markup, Tax, Discount, Total
-    // Example: Labour - Dave   8.00   $58.00   $95.00   63.79%   15%   0%   $760.00
-    const rowRegex = /^(.+?)\s{2,}(\d+(?:\.\d+)?)\s+\$?(\d+(?:\.\d+)?)\s+\$?(\d+(?:\.\d+)?)\s+[\d.]+%\s+\d+%\s+\d+%\s+\$?(\d+(?:\.\d+)?)/;
-
-    lines.forEach((line, index) => {
-      const match = line.match(rowRegex);
-      if (match) {
-        const name = match[1].trim();
-        const quantity = parseFloat(match[2]);
-        const cost = parseFloat(match[3]);
-        // const price = parseFloat(match[4]); // Not used
-        const total = parseFloat(match[5]);
-        if (name && !isNaN(quantity) && !isNaN(cost) && !isNaN(total)) {
-          lineItems.push({
-            id: (index + 1).toString(),
-            name,
-            type: 'material' as const,
-            quantity,
-            cost,
-            total,
-            // Optionally, you can add price, markup, etc. if needed
-          });
-        }
+  for (const line of lines) {
+    // Find the index of the first digit (quantity)
+    const firstDigitIdx = line.search(/\d/);
+    if (firstDigitIdx === -1) continue;
+    const name = line.slice(0, firstDigitIdx).trim();
+    const rest = line.slice(firstDigitIdx);
+    // More flexible regex: allow optional $ and commas, flexible spaces
+    const match = rest.match(/^(\d+(?:\.\d+)?)\s*\$?([\d,]+\.\d+)\s*\$?([\d,]+\.\d+)\s*([\d.]+)%\s*([\d.]+)%\s*([\d.]+)%\s*\$?([\d,]+\.\d+)/);
+    if (match) {
+      lineItems.push({
+        name,
+        quantity: parseFloat(match[1]),
+        cost: parseFloat(match[2].replace(/,/g, '')),
+        price: parseFloat(match[3].replace(/,/g, '')),
+        markup: parseFloat(match[4]),
+        tax: parseFloat(match[5]),
+        discount: parseFloat(match[6]),
+        total: parseFloat(match[7].replace(/,/g, '')),
+      });
+    } else {
+      // For debugging: log lines that don't match
+      if (rest.length > 0) {
+        // Only log if there's something after the name
+        // eslint-disable-next-line no-console
+        console.log('No match for line:', line);
       }
-    });
-
-    return lineItems.length > 0 ? { gstRate, lineItems } : null;
-  } catch (error) {
-    console.error('Error parsing quote text:', error);
-    return null;
+    }
   }
+  return { gstRate: 0.15, lineItems };
 };
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator }) => {
@@ -274,6 +263,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
   const [extractedData, setExtractedData] = useState<QuoteData | null>(null);
   const [ocrText, setOcrText] = useState<string | null>(null);
   const [dataConfirmed, setDataConfirmed] = useState(false);
+  const [rawLines, setRawLines] = useState('');
+  const [parsedItems, setParsedItems] = useState<any[]>([]);
 
   // Auto-clear all data when component mounts (when navigating back from simulator)
   useEffect(() => {
@@ -441,236 +432,122 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
 
   const isDataReady = photo && extractedData && !isProcessing;
 
+  // Parsing function for pasted lines
+  function parsePastedLines() {
+    const lines = rawLines.split('\n').map(l => l.trim()).filter(Boolean);
+    const items: any[] = [];
+    for (const line of lines) {
+      // Find the index of the first digit (quantity)
+      const firstDigitIdx = line.search(/\d/);
+      if (firstDigitIdx === -1) continue;
+      const name = line.slice(0, firstDigitIdx).trim();
+      const rest = line.slice(firstDigitIdx);
+      // Extract all numbers, including those with commas, decimals, and percentages
+      // This will match numbers, numbers with $, and numbers with %
+      const matches = [...rest.matchAll(/(\d+(?:,\d{3})*(?:\.\d+)?)/g)];
+      const percentMatches = [...rest.matchAll(/([\d.]+)%/g)];
+      // Fallback: If we have at least 7 numbers, assign them in order
+      if (matches.length >= 7) {
+        const [quantity, cost, price, markup, tax, discount, total] = matches.map(m => m[1].replace(/,/g, ''));
+        items.push({
+          name,
+          quantity: parseFloat(quantity),
+          cost: parseFloat(cost),
+          price: parseFloat(price),
+          markup: percentMatches[0] ? parseFloat(percentMatches[0][1]) : parseFloat(markup),
+          tax: percentMatches[1] ? parseFloat(percentMatches[1][1]) : parseFloat(tax),
+          discount: percentMatches[2] ? parseFloat(percentMatches[2][1]) : parseFloat(discount),
+          total: parseFloat(total),
+        });
+      }
+    }
+    setParsedItems(items);
+    setDataConfirmed(false);
+  }
+
+  function handleConfirmAndSimulate() {
+    if (parsedItems.length > 0) {
+      onNavigateToSimulator({
+        gstRate: 0.15,
+        lineItems: parsedItems.map((item, idx) => ({
+          id: (idx + 1).toString(),
+          name: item.name,
+          type: 'material', // or infer from name if needed
+          quantity: item.quantity,
+          cost: item.cost,
+          price: item.price,
+          markup: item.markup,
+          tax: item.tax,
+          discount: item.discount,
+          total: item.total,
+        })),
+      });
+    }
+  }
+
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* Matrix Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-black via-gray-900 to-green-900">
-        {/* Animated Matrix Characters */}
-        <div className="absolute inset-0 opacity-10">
-          {matrixChars.map((char, index) => (
-            <div
-              key={index}
-              className="absolute text-green-400 font-mono text-sm animate-pulse"
-              style={{
-                left: `${(index * 7) % 100}%`,
-                top: `${(index * 13) % 100}%`,
-                animationDelay: `${index * 0.1}s`,
-                animationDuration: `${2 + (index % 3)}s`
-              }}
-            >
-              {char}
-            </div>
-          ))}
-        </div>
-        
-        {/* Grid Pattern Overlay */}
-        <div 
-          className="absolute inset-0 opacity-5"
-          style={{
-            backgroundImage: `
-              linear-gradient(rgba(0, 255, 0, 0.1) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(0, 255, 0, 0.1) 1px, transparent 1px)
-            `,
-            backgroundSize: '50px 50px'
-          }}
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900">
+      <div className="max-w-2xl w-full mx-auto my-8 p-6 bg-gray-800 rounded-xl border border-green-700">
+        <h1 className="text-3xl font-bold text-green-200 mb-4">Paste Quote Data</h1>
+        <p className="text-green-100 mb-4">Copy and paste your quote lines below, then process and go to the calculator.</p>
+        <textarea
+          className="w-full h-40 p-2 rounded bg-black text-green-200 border border-green-700 mb-2"
+          placeholder="Paste each line from your quote here..."
+          value={rawLines}
+          onChange={e => setRawLines(e.target.value)}
         />
-        
-        {/* Scanning Line Effect */}
-        <div className="absolute inset-0">
-          <div className="absolute w-full h-0.5 bg-gradient-to-r from-transparent via-green-400 to-transparent opacity-30 animate-pulse" 
-               style={{ 
-                 top: '30%',
-                 animation: 'scan 4s linear infinite'
-               }} />
-        </div>
-      </div>
-
-      {/* Content Overlay */}
-      <div className="relative z-10 min-h-screen bg-black bg-opacity-40 p-6">
-        {/* Landscape optimized layout */}
-        <div className="flex items-center justify-between h-full max-w-6xl mx-auto">
-          
-          {/* Left side - App info */}
-          <div className="flex-1 pr-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-green-500 to-blue-600 rounded-full mb-4 shadow-lg shadow-green-500/25">
-              <Calculator className="w-8 h-8 text-white" />
+        <button
+          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold mb-4"
+          onClick={parsePastedLines}
+        >
+          Process Data
+        </button>
+        {parsedItems.length > 0 && (
+          <div className="my-4">
+            <h3 className="text-green-200 font-semibold mb-2">Parsed Line Items</h3>
+            <table className="min-w-full text-xs border border-green-700 bg-black bg-opacity-40 rounded">
+              <thead>
+                <tr>
+                  <th className="px-2 py-1 border-b border-green-700">Name</th>
+                  <th className="px-2 py-1 border-b border-green-700">Quantity</th>
+                  <th className="px-2 py-1 border-b border-green-700">Cost</th>
+                  <th className="px-2 py-1 border-b border-green-700">Price</th>
+                  <th className="px-2 py-1 border-b border-green-700">Markup</th>
+                  <th className="px-2 py-1 border-b border-green-700">Tax</th>
+                  <th className="px-2 py-1 border-b border-green-700">Discount</th>
+                  <th className="px-2 py-1 border-b border-green-700">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {parsedItems.map((item, idx) => (
+                  <tr key={idx}>
+                    <td className="px-2 py-1 border-b border-green-900">{item.name}</td>
+                    <td className="px-2 py-1 border-b border-green-900">{item.quantity}</td>
+                    <td className="px-2 py-1 border-b border-green-900">{item.cost}</td>
+                    <td className="px-2 py-1 border-b border-green-900">{item.price}</td>
+                    <td className="px-2 py-1 border-b border-green-900">{item.markup}</td>
+                    <td className="px-2 py-1 border-b border-green-900">{item.tax}</td>
+                    <td className="px-2 py-1 border-b border-green-900">{item.discount}</td>
+                    <td className="px-2 py-1 border-b border-green-900">{item.total}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="mt-2 flex items-center gap-2">
+              <input type="checkbox" id="confirm-data" checked={dataConfirmed} onChange={e => setDataConfirmed(e.target.checked)} />
+              <label htmlFor="confirm-data" className="text-green-200 text-xs">I confirm the data above is correct</label>
             </div>
-            <h1 className="text-4xl font-bold text-white mb-3 drop-shadow-lg">
-              Margin Calculator
-            </h1>
-            <p className="text-green-200 text-xl mb-8 drop-shadow-md">
-              Professional quote analysis tool for trade professionals
-            </p>
-            
-            {ocrText && (
-              <div className="my-6 p-4 bg-gray-800 rounded-xl border border-green-700 text-green-100">
-                <h2 className="font-bold mb-2 text-green-300">OCR Debug Info</h2>
-                <div className="mb-2">
-                  <span className="font-semibold">Raw OCR Text:</span>
-                  <pre className="bg-black bg-opacity-60 p-2 rounded text-xs overflow-x-auto max-h-40 mb-2">{ocrText}</pre>
-                </div>
-                {extractedData && extractedData.lineItems && (
-                  <div>
-                    <span className="font-semibold">Parsed Line Items:</span>
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full text-xs border border-green-700 bg-black bg-opacity-40 rounded">
-                        <thead>
-                          <tr>
-                            <th className="px-2 py-1 border-b border-green-700">Name</th>
-                            <th className="px-2 py-1 border-b border-green-700">Quantity</th>
-                            <th className="px-2 py-1 border-b border-green-700">Cost</th>
-                            <th className="px-2 py-1 border-b border-green-700">Total</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {extractedData.lineItems.map((item, idx) => (
-                            <tr key={idx}>
-                              <td className="px-2 py-1 border-b border-green-900">{item.name}</td>
-                              <td className="px-2 py-1 border-b border-green-900">{item.quantity}</td>
-                              <td className="px-2 py-1 border-b border-green-900">{item.cost}</td>
-                              <td className="px-2 py-1 border-b border-green-900">{item.total ?? '-'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-                <div className="mt-2 flex items-center gap-2">
-                  <input type="checkbox" id="confirm-data" checked={dataConfirmed} onChange={e => setDataConfirmed(e.target.checked)} />
-                  <label htmlFor="confirm-data" className="text-green-200 text-xs">I confirm the data above is correct</label>
-                </div>
-              </div>
-            )}
-            
-            {/* Continue Button */}
             <button
-              onClick={handleOpenCalculator}
-              disabled={!isDataReady || !dataConfirmed}
-              className={`py-4 px-8 rounded-xl font-semibold text-lg flex items-center gap-3 transition-all shadow-lg border ${
-                isDataReady && dataConfirmed
-                  ? 'bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white hover:shadow-xl shadow-green-500/25 hover:shadow-green-500/40 border-green-500/30'
-                  : 'bg-gray-600 text-gray-400 cursor-not-allowed border-gray-500/30 shadow-gray-500/10'
+              className={`mt-4 py-2 px-6 rounded-xl font-semibold text-lg transition-all shadow-lg border ${
+                dataConfirmed ? 'bg-gradient-to-r from-green-600 to-blue-600 text-white hover:from-green-700 hover:to-blue-700 border-green-500/30' : 'bg-gray-600 text-gray-400 cursor-not-allowed border-gray-500/30'
               }`}
+              onClick={handleConfirmAndSimulate}
+              disabled={!dataConfirmed}
             >
-              <span>{isDataReady && dataConfirmed ? 'Open Calculator' : 'Capture & Confirm Data First'}</span>
-              <ArrowRight className="w-5 h-5" />
+              Go to Calculator
             </button>
-            
-            {isProcessing && (
-              <div className="mt-4 flex items-center gap-2 text-blue-300">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="text-sm">Processing quote data...</span>
-              </div>
-            )}
           </div>
-
-          {/* Right side - Capture section */}
-          <div className="flex-1 flex justify-center">
-            <div className="bg-black bg-opacity-60 backdrop-blur-sm rounded-2xl p-8 border border-green-500/30 text-center shadow-xl shadow-green-500/10">
-              <h3 className="text-xl font-semibold text-green-100 mb-6 drop-shadow-md">
-                Import Quote Data
-              </h3>
-              
-              <div className="mb-6">
-                {photo ? (
-                  <div className="relative">
-                    <img 
-                      src={photo} 
-                      alt="Captured Quote" 
-                      className="w-48 h-32 rounded-2xl mx-auto object-cover border-4 border-green-500 shadow-lg shadow-green-500/25"
-                    />
-                    {isProcessing && (
-                      <div className="absolute inset-0 bg-black bg-opacity-60 rounded-2xl flex items-center justify-center">
-                        <div className="text-center">
-                          <Loader2 className="w-8 h-8 animate-spin text-blue-400 mx-auto mb-2" />
-                          <span className="text-blue-300 text-sm">Processing...</span>
-                        </div>
-                      </div>
-                    )}
-                    <div className="absolute -bottom-3 -right-3 flex gap-2">
-                      <button
-                        onClick={handleScreenCapture}
-                        disabled={isCapturing || isProcessing}
-                        className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center border-4 border-black hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg shadow-blue-500/25 disabled:opacity-50"
-                        title="Take Screenshot"
-                      >
-                        <Monitor className="w-5 h-5 text-white" />
-                      </button>
-                      <button
-                        onClick={handleFileUpload}
-                        disabled={isProcessing}
-                        className="w-10 h-10 bg-gradient-to-br from-green-600 to-blue-600 rounded-full flex items-center justify-center border-4 border-black hover:from-green-700 hover:to-blue-700 transition-all shadow-lg shadow-green-500/25 disabled:opacity-50"
-                        title="Upload Image"
-                      >
-                        <Camera className="w-5 h-5 text-white" />
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <button
-                      onClick={handleScreenCapture}
-                      disabled={isCapturing}
-                      className="w-full h-32 bg-black bg-opacity-60 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-blue-500/50 hover:border-blue-400 hover:bg-opacity-80 transition-all group shadow-lg shadow-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isCapturing ? (
-                        <>
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mb-2"></div>
-                          <span className="text-blue-300 text-sm">Capturing...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Monitor className="w-8 h-8 text-blue-400 group-hover:text-blue-300 mb-2" />
-                          <span className="text-blue-300 text-sm font-medium">Take Screenshot</span>
-                          <span className="text-blue-400 text-xs">Capture quote from screen</span>
-                        </>
-                      )}
-                    </button>
-                    
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-green-500/30 to-transparent"></div>
-                      <span className="text-green-300 text-xs">or</span>
-                      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-green-500/30 to-transparent"></div>
-                    </div>
-                    
-                    <button
-                      onClick={handleFileUpload}
-                      className="w-full h-20 bg-black bg-opacity-60 rounded-xl flex items-center justify-center border border-green-500/30 hover:border-green-400 hover:bg-opacity-80 transition-all group shadow-lg shadow-green-500/10"
-                    >
-                      <Camera className="w-6 h-6 text-green-400 group-hover:text-green-300 mr-2" />
-                      <span className="text-green-300 text-sm">Upload Image</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-              
-              <p className="text-green-300 text-sm drop-shadow-sm">
-                {isProcessing ? 
-                  'Extracting quote data from image...' :
-                  photo ? 
-                    (extractedData ? 'Quote captured! Processing complete.' : 'Processing new quote...') : 
-                    'Capture your quote directly from screen or upload an image'
-                }
-              </p>
-              
-              {extractedData && !isProcessing && (
-                <div className="mt-4 p-3 bg-green-900/30 rounded-lg border border-green-500/30">
-                  <p className="text-green-200 text-xs mb-2">
-                    <Square className="w-3 h-3 inline mr-1" />
-                    Quote data extracted successfully
-                  </p>
-                  <div className="text-xs text-green-300">
-                    {extractedData.lineItems.length} items found
-                    {extractedData.lineItems.some(item => item.isBigTicket) && (
-                      <span className="ml-2 text-amber-400">• Big-ticket items detected</span>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
