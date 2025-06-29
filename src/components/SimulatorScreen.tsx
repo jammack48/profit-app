@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calculator, ArrowLeft, User } from 'lucide-react';
+import { Calculator, ArrowLeft, Zap } from 'lucide-react';
 import { VerticalSlider } from './VerticalSlider';
 import { SimpleProfitDisplay } from './SimpleProfitDisplay';
 import { CostContainer } from './CostContainer';
@@ -8,12 +8,10 @@ import { sampleQuoteData } from '../data/sampleQuote';
 import { MarginSettings } from '../types/quote';
 
 interface SimulatorScreenProps {
-  userName: string;
   onNavigateToHome: () => void;
 }
 
 export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({ 
-  userName, 
   onNavigateToHome 
 }) => {
   const [marginSettings, setMarginSettings] = useState<MarginSettings>({
@@ -47,7 +45,6 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
   const bigTicketMargin = bigTicketItem ? 
     (marginSettings.bigTicketMargins[bigTicketItem.id] ?? bigTicketItem.markup) : 0;
 
-  // Calculate adjusted items for cost containers
   const getAdjustedItems = () => {
     return sampleQuoteData.lineItems.map(item => {
       let adjustedMarkup = item.markup;
@@ -85,9 +82,9 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
   const bigTicketTotalPrice = bigTicketItems.reduce((sum, item) => sum + (item.adjustedPrice * item.quantity), 0);
 
   return (
-    <div className="min-h-screen bg-gray-900 p-4">
-      {/* Header */}
-      <div className="bg-gray-800 rounded-lg shadow-lg p-4 mb-4 border border-gray-700">
+    <div className="min-h-screen bg-gray-900 p-3">
+      {/* Compact Header for landscape */}
+      <div className="bg-gray-800 rounded-lg shadow-lg p-3 mb-3 border border-gray-700">
         <div className="flex items-center justify-between">
           <button
             onClick={onNavigateToHome}
@@ -98,28 +95,28 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
           
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-900 rounded-lg">
-              <Calculator className="w-6 h-6 text-blue-400" />
+              <Calculator className="w-5 h-5 text-blue-400" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-100">Margin Simulator</h1>
-              <p className="text-sm text-gray-400">Welcome back, {userName}</p>
+              <h1 className="text-lg font-bold text-gray-100">Margin Impact Simulator</h1>
+              <p className="text-xs text-gray-400">Analyze quote profitability in real-time</p>
             </div>
           </div>
           
-          <div className="flex items-center gap-2 text-gray-400">
-            <User className="w-4 h-4" />
-            <span className="text-sm">{userName}</span>
+          <div className="flex items-center gap-2 text-xs text-gray-400">
+            <Zap className="w-3 h-3 text-green-500" />
+            <span>Live calculations</span>
           </div>
         </div>
       </div>
 
-      {/* Main Content - Landscape Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Main Content - Optimized for landscape phone */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {/* Controls */}
         <div className="bg-gray-800 rounded-lg shadow-lg p-4 border border-gray-700">
-          <h2 className="text-lg font-bold text-gray-100 mb-4">Margin Controls</h2>
+          <h2 className="text-lg font-bold text-gray-100 mb-3">Margin Controls</h2>
           
-          <div className="grid grid-cols-3 gap-4 h-64 mb-4">
+          <div className="grid grid-cols-3 gap-3 h-48 mb-4">
             <VerticalSlider
               label="Labour"
               value={marginSettings.labourMargin}
@@ -146,7 +143,7 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
           </div>
 
           {/* Cost Containers */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-3">
             <CostContainer
               title="Labour"
               items={labourItems}
