@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Calculator, ArrowRight } from 'lucide-react';
+import { Camera, Calculator, ArrowRight, Monitor, Square } from 'lucide-react';
 
 interface HomeScreenProps {
   onNavigateToSimulator: () => void;
@@ -8,6 +8,7 @@ interface HomeScreenProps {
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator }) => {
   const [photo, setPhoto] = useState<string | null>(null);
   const [matrixChars, setMatrixChars] = useState<string[]>([]);
+  const [isCapturing, setIsCapturing] = useState(false);
 
   // Generate Matrix-style characters
   useEffect(() => {
@@ -25,30 +26,78 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
     return () => clearInterval(interval);
   }, []);
 
-  const handleTakePhoto = async () => {
+  const handleScreenCapture = async () => {
     try {
-      // For web testing, we'll use a file input
-      // In Capacitor, this will be replaced with Camera.getPhoto()
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*';
-      input.capture = 'environment';
+      setIsCapturing(true);
       
-      input.onchange = (e) => {
-        const file = (e.target as HTMLInputElement).files?.[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            setPhoto(e.target?.result as string);
-          };
-          reader.readAsDataURL(file);
+      // Check if Screen Capture API is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+        alert('Screen capture is not supported in this browser. Please use Chrome, Firefox, or Edge.');
+        setIsCapturing(false);
+        return;
+      }
+
+      // Request screen capture
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          mediaSource: 'screen',
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
         }
-      };
-      
-      input.click();
+      });
+
+      // Create video element to capture frame
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.play();
+
+      video.addEventListener('loadedmetadata', () => {
+        // Create canvas to capture the frame
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(video, 0, 0);
+        
+        // Convert to data URL
+        const dataURL = canvas.toDataURL('image/png');
+        setPhoto(dataURL);
+        
+        // Stop the stream
+        stream.getTracks().forEach(track => track.stop());
+        setIsCapturing(false);
+      });
+
     } catch (error) {
-      console.error('Error taking photo:', error);
+      console.error('Error capturing screen:', error);
+      setIsCapturing(false);
+      
+      if (error.name === 'NotAllowedError') {
+        alert('Screen capture permission was denied. Please allow screen sharing to capture quotes.');
+      } else {
+        alert('Failed to capture screen. Please try again.');
+      }
     }
+  };
+
+  const handleFileUpload = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setPhoto(e.target?.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+    
+    input.click();
   };
 
   return (
@@ -122,11 +171,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
             </button>
           </div>
 
-          {/* Right side - Photo section */}
+          {/* Right side - Capture section */}
           <div className="flex-1 flex justify-center">
             <div className="bg-black bg-opacity-60 backdrop-blur-sm rounded-2xl p-8 border border-green-500/30 text-center shadow-xl shadow-green-500/10">
               <h3 className="text-xl font-semibold text-green-100 mb-6 drop-shadow-md">
-                Take Photo (Optional)
+                Import Quote Data
               </h3>
               
               <div className="mb-6">
@@ -134,29 +183,80 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
                   <div className="relative">
                     <img 
                       src={photo} 
-                      alt="Captured" 
-                      className="w-40 h-40 rounded-2xl mx-auto object-cover border-4 border-green-500 shadow-lg shadow-green-500/25"
+                      alt="Captured Quote" 
+                      className="w-48 h-32 rounded-2xl mx-auto object-cover border-4 border-green-500 shadow-lg shadow-green-500/25"
                     />
-                    <button
-                      onClick={handleTakePhoto}
-                      className="absolute -bottom-3 -right-3 w-12 h-12 bg-gradient-to-br from-green-600 to-blue-600 rounded-full flex items-center justify-center border-4 border-black hover:from-green-700 hover:to-blue-700 transition-all shadow-lg shadow-green-500/25"
-                    >
-                      <Camera className="w-6 h-6 text-white" />
-                    </button>
+                    <div className="absolute -bottom-3 -right-3 flex gap-2">
+                      <button
+                        onClick={handleScreenCapture}
+                        disabled={isCapturing}
+                        className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center border-4 border-black hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg shadow-blue-500/25 disabled:opacity-50"
+                        title="Take Screenshot"
+                      >
+                        <Monitor className="w-5 h-5 text-white" />
+                      </button>
+                      <button
+                        onClick={handleFileUpload}
+                        className="w-10 h-10 bg-gradient-to-br from-green-600 to-blue-600 rounded-full flex items-center justify-center border-4 border-black hover:from-green-700 hover:to-blue-700 transition-all shadow-lg shadow-green-500/25"
+                        title="Upload Image"
+                      >
+                        <Camera className="w-5 h-5 text-white" />
+                      </button>
+                    </div>
                   </div>
                 ) : (
-                  <button
-                    onClick={handleTakePhoto}
-                    className="w-40 h-40 bg-black bg-opacity-60 rounded-2xl mx-auto flex items-center justify-center border-2 border-dashed border-green-500/50 hover:border-green-400 hover:bg-opacity-80 transition-all group shadow-lg shadow-green-500/10"
-                  >
-                    <Camera className="w-12 h-12 text-green-400 group-hover:text-green-300" />
-                  </button>
+                  <div className="space-y-4">
+                    <button
+                      onClick={handleScreenCapture}
+                      disabled={isCapturing}
+                      className="w-full h-32 bg-black bg-opacity-60 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-blue-500/50 hover:border-blue-400 hover:bg-opacity-80 transition-all group shadow-lg shadow-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isCapturing ? (
+                        <>
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mb-2"></div>
+                          <span className="text-blue-300 text-sm">Capturing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Monitor className="w-8 h-8 text-blue-400 group-hover:text-blue-300 mb-2" />
+                          <span className="text-blue-300 text-sm font-medium">Take Screenshot</span>
+                          <span className="text-blue-400 text-xs">Capture quote from screen</span>
+                        </>
+                      )}
+                    </button>
+                    
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-green-500/30 to-transparent"></div>
+                      <span className="text-green-300 text-xs">or</span>
+                      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-green-500/30 to-transparent"></div>
+                    </div>
+                    
+                    <button
+                      onClick={handleFileUpload}
+                      className="w-full h-20 bg-black bg-opacity-60 rounded-xl flex items-center justify-center border border-green-500/30 hover:border-green-400 hover:bg-opacity-80 transition-all group shadow-lg shadow-green-500/10"
+                    >
+                      <Camera className="w-6 h-6 text-green-400 group-hover:text-green-300 mr-2" />
+                      <span className="text-green-300 text-sm">Upload Image</span>
+                    </button>
+                  </div>
                 )}
               </div>
               
               <p className="text-green-300 text-sm drop-shadow-sm">
-                {photo ? 'Tap camera icon to retake photo' : 'Tap to capture quote or invoice'}
+                {photo ? 
+                  'Quote captured! Use buttons to retake or upload different image' : 
+                  'Capture your quote directly from screen or upload an image'
+                }
               </p>
+              
+              {photo && (
+                <div className="mt-4 p-3 bg-green-900/30 rounded-lg border border-green-500/30">
+                  <p className="text-green-200 text-xs">
+                    <Square className="w-3 h-3 inline mr-1" />
+                    Quote data ready for processing
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
