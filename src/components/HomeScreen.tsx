@@ -57,7 +57,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
         <div className="flex items-center gap-3 mb-4">
           <Sparkles className="w-8 h-8 text-green-400" />
           <div>
-            <h1 className="text-3xl font-bold text-green-200">AI-Powered Quote Parser</h1>
+            <h1 className="text-3xl font-bold text-green-200">AI Profit Calculator</h1>
             <p className="text-green-100">
               Paste your quote data and let AI intelligently parse and structure it for analysis.
             </p>
