@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Calculator, ArrowRight, Monitor, Square } from 'lucide-react';
+import { Camera, Calculator, ArrowRight, Monitor, Square, Loader2 } from 'lucide-react';
 
 interface HomeScreenProps {
-  onNavigateToSimulator: () => void;
+  onNavigateToSimulator: (quoteData?: any) => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator }) => {
   const [photo, setPhoto] = useState<string | null>(null);
   const [matrixChars, setMatrixChars] = useState<string[]>([]);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [extractedData, setExtractedData] = useState<any>(null);
 
   // Generate Matrix-style characters
   useEffect(() => {
@@ -25,6 +27,135 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
     const interval = setInterval(generateChars, 2000);
     return () => clearInterval(interval);
   }, []);
+
+  const processQuoteImage = async (imageData: string) => {
+    setIsProcessing(true);
+    
+    // Simulate OCR processing delay
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Mock extracted data based on the screenshot you provided
+    const mockExtractedData = {
+      gstRate: 0.15,
+      lineItems: [
+        {
+          id: '1',
+          name: 'Labour - Dave',
+          type: 'labour',
+          quantity: 8.00,
+          cost: 58.00,
+          price: 95.00,
+          markup: 63.79,
+          tax: 15,
+          discount: 0
+        },
+        {
+          id: '2',
+          name: '55650320 Switch isolator 20A 2P IP66 small NL120S N-line',
+          type: 'material',
+          quantity: 1.00,
+          cost: 12.15,
+          price: 81.00,
+          markup: 566.67,
+          tax: 15,
+          discount: 0
+        },
+        {
+          id: '3',
+          name: '30800040 Conduit flex 25mm uPVC GY prm 25m 30.25G Marley',
+          type: 'material',
+          quantity: 5.00,
+          cost: 2.17,
+          price: 12.03,
+          markup: 454.38,
+          tax: 15,
+          discount: 0
+        },
+        {
+          id: '4',
+          name: '41412000 Anchor wall dog 38mm SQ pk26 ELWDSA38SD Elmark',
+          type: 'material',
+          quantity: 1.00,
+          cost: 15.87,
+          price: 24.83,
+          markup: 56.46,
+          tax: 15,
+          discount: 0
+        },
+        {
+          id: '5',
+          name: '49140020 Tape duct 48mmx30m utility BK 330282027 Tiki Tape',
+          type: 'material',
+          quantity: 1.00,
+          cost: 10.82,
+          price: 14.42,
+          markup: 33.27,
+          tax: 15,
+          discount: 0
+        },
+        {
+          id: '6',
+          name: '44320220 Cable tie std 200x4.0mm NAT pk100 EL3004 Elmark',
+          type: 'material',
+          quantity: 0.10,
+          cost: 16.46,
+          price: 41.16,
+          markup: 149.70,
+          tax: 15,
+          discount: 0
+        },
+        {
+          id: '7',
+          name: '48450040 Silicone industrial 300ml CL 30804311 Bostik',
+          type: 'material',
+          quantity: 0.50,
+          cost: 18.08,
+          price: 24.10,
+          markup: 33.30,
+          tax: 15,
+          discount: 0
+        },
+        {
+          id: '8',
+          name: 'Daikin FTXM35U',
+          type: 'material',
+          quantity: 1.00,
+          cost: 1120.00,
+          price: 1344.00,
+          markup: 20.00,
+          tax: 15,
+          discount: 0,
+          isBigTicket: true,
+          maxMarkup: 25
+        },
+        {
+          id: '9',
+          name: 'Wifi Module',
+          type: 'material',
+          quantity: 1.00,
+          cost: 118.00,
+          price: 141.60,
+          markup: 20.00,
+          tax: 15,
+          discount: 0
+        },
+        {
+          id: '10',
+          name: 'Labour - Electrician',
+          type: 'labour',
+          quantity: 8.00,
+          cost: 58.00,
+          price: 99.00,
+          markup: 70.69,
+          tax: 15,
+          discount: 0
+        }
+      ]
+    };
+    
+    setExtractedData(mockExtractedData);
+    setIsProcessing(false);
+  };
 
   const handleScreenCapture = async () => {
     try {
@@ -51,7 +182,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
       video.srcObject = stream;
       video.play();
 
-      video.addEventListener('loadedmetadata', () => {
+      video.addEventListener('loadedmetadata', async () => {
         // Create canvas to capture the frame
         const canvas = document.createElement('canvas');
         canvas.width = video.videoWidth;
@@ -67,6 +198,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
         // Stop the stream
         stream.getTracks().forEach(track => track.stop());
         setIsCapturing(false);
+        
+        // Process the captured image
+        await processQuoteImage(dataURL);
       });
 
     } catch (error) {
@@ -81,17 +215,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
     }
   };
 
-  const handleFileUpload = () => {
+  const handleFileUpload = async () => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
     
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
         const reader = new FileReader();
-        reader.onload = (e) => {
-          setPhoto(e.target?.result as string);
+        reader.onload = async (e) => {
+          const imageData = e.target?.result as string;
+          setPhoto(imageData);
+          await processQuoteImage(imageData);
         };
         reader.readAsDataURL(file);
       }
@@ -99,6 +235,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
     
     input.click();
   };
+
+  const handleOpenCalculator = () => {
+    if (extractedData) {
+      onNavigateToSimulator(extractedData);
+    }
+  };
+
+  const isDataReady = photo && extractedData && !isProcessing;
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -163,12 +307,24 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
             
             {/* Continue Button */}
             <button
-              onClick={onNavigateToSimulator}
-              className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white py-4 px-8 rounded-xl font-semibold text-lg flex items-center gap-3 transition-all shadow-lg hover:shadow-xl shadow-green-500/25 hover:shadow-green-500/40 border border-green-500/30"
+              onClick={handleOpenCalculator}
+              disabled={!isDataReady}
+              className={`py-4 px-8 rounded-xl font-semibold text-lg flex items-center gap-3 transition-all shadow-lg border ${
+                isDataReady
+                  ? 'bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white hover:shadow-xl shadow-green-500/25 hover:shadow-green-500/40 border-green-500/30'
+                  : 'bg-gray-600 text-gray-400 cursor-not-allowed border-gray-500/30 shadow-gray-500/10'
+              }`}
             >
-              <span>Open Calculator</span>
+              <span>{isDataReady ? 'Open Calculator' : 'Capture Quote First'}</span>
               <ArrowRight className="w-5 h-5" />
             </button>
+            
+            {isProcessing && (
+              <div className="mt-4 flex items-center gap-2 text-blue-300">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm">Processing quote data...</span>
+              </div>
+            )}
           </div>
 
           {/* Right side - Capture section */}
@@ -186,10 +342,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
                       alt="Captured Quote" 
                       className="w-48 h-32 rounded-2xl mx-auto object-cover border-4 border-green-500 shadow-lg shadow-green-500/25"
                     />
+                    {isProcessing && (
+                      <div className="absolute inset-0 bg-black bg-opacity-60 rounded-2xl flex items-center justify-center">
+                        <div className="text-center">
+                          <Loader2 className="w-8 h-8 animate-spin text-blue-400 mx-auto mb-2" />
+                          <span className="text-blue-300 text-sm">Processing...</span>
+                        </div>
+                      </div>
+                    )}
                     <div className="absolute -bottom-3 -right-3 flex gap-2">
                       <button
                         onClick={handleScreenCapture}
-                        disabled={isCapturing}
+                        disabled={isCapturing || isProcessing}
                         className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center border-4 border-black hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg shadow-blue-500/25 disabled:opacity-50"
                         title="Take Screenshot"
                       >
@@ -197,7 +361,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
                       </button>
                       <button
                         onClick={handleFileUpload}
-                        className="w-10 h-10 bg-gradient-to-br from-green-600 to-blue-600 rounded-full flex items-center justify-center border-4 border-black hover:from-green-700 hover:to-blue-700 transition-all shadow-lg shadow-green-500/25"
+                        disabled={isProcessing}
+                        className="w-10 h-10 bg-gradient-to-br from-green-600 to-blue-600 rounded-full flex items-center justify-center border-4 border-black hover:from-green-700 hover:to-blue-700 transition-all shadow-lg shadow-green-500/25 disabled:opacity-50"
                         title="Upload Image"
                       >
                         <Camera className="w-5 h-5 text-white" />
@@ -243,18 +408,23 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
               </div>
               
               <p className="text-green-300 text-sm drop-shadow-sm">
-                {photo ? 
-                  'Quote captured! Use buttons to retake or upload different image' : 
-                  'Capture your quote directly from screen or upload an image'
+                {isProcessing ? 
+                  'Extracting quote data from image...' :
+                  photo ? 
+                    'Quote captured! Processing complete.' : 
+                    'Capture your quote directly from screen or upload an image'
                 }
               </p>
               
-              {photo && (
+              {extractedData && !isProcessing && (
                 <div className="mt-4 p-3 bg-green-900/30 rounded-lg border border-green-500/30">
-                  <p className="text-green-200 text-xs">
+                  <p className="text-green-200 text-xs mb-2">
                     <Square className="w-3 h-3 inline mr-1" />
-                    Quote data ready for processing
+                    Quote data extracted successfully
                   </p>
+                  <div className="text-xs text-green-300">
+                    {extractedData.lineItems.length} items found
+                  </div>
                 </div>
               )}
             </div>

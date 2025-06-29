@@ -5,25 +5,30 @@ import { SimpleProfitDisplay } from './SimpleProfitDisplay';
 import { CostContainer } from './CostContainer';
 import { useQuoteCalculations } from '../hooks/useQuoteCalculations';
 import { sampleQuoteData } from '../data/sampleQuote';
-import { MarginSettings } from '../types/quote';
+import { MarginSettings, QuoteData } from '../types/quote';
 
 interface SimulatorScreenProps {
   onNavigateToHome: () => void;
+  quoteData?: QuoteData | null;
 }
 
 export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({ 
-  onNavigateToHome 
+  onNavigateToHome,
+  quoteData 
 }) => {
+  // Use provided quote data or fall back to sample data
+  const activeQuoteData = quoteData || sampleQuoteData;
+  
   const [marginSettings, setMarginSettings] = useState<MarginSettings>({
     labourMargin: 63.79,
     materialMargin: 88.0,
     bigTicketMargins: {
-      '13': 25.0 // FTXV50U
+      '8': 20.0 // Daikin FTXM35U from extracted data
     }
   });
 
-  const results = useQuoteCalculations(sampleQuoteData, marginSettings);
-  const bigTicketItem = sampleQuoteData.lineItems.find(item => item.isBigTicket);
+  const results = useQuoteCalculations(activeQuoteData, marginSettings);
+  const bigTicketItem = activeQuoteData.lineItems.find(item => item.isBigTicket);
 
   const handleLabourChange = (value: number) => {
     setMarginSettings(prev => ({ ...prev, labourMargin: value }));
@@ -46,7 +51,7 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
     (marginSettings.bigTicketMargins[bigTicketItem.id] ?? bigTicketItem.markup) : 0;
 
   const getAdjustedItems = () => {
-    return sampleQuoteData.lineItems.map(item => {
+    return activeQuoteData.lineItems.map(item => {
       let adjustedMarkup = item.markup;
       
       if (item.isBigTicket && marginSettings.bigTicketMargins[item.id] !== undefined) {
@@ -81,6 +86,11 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
   const bigTicketTotalCost = bigTicketItems.reduce((sum, item) => sum + (item.cost * item.quantity), 0);
   const bigTicketTotalPrice = bigTicketItems.reduce((sum, item) => sum + (item.adjustedPrice * item.quantity), 0);
 
+  const bigTicketLabel = bigTicketItem ? 
+    (bigTicketItem.name.includes('FTXM') ? 'Heat Pump' : 
+     bigTicketItem.name.includes('Daikin') ? 'Heat Pump' : 
+     'Big Ticket') : 'Big Ticket';
+
   return (
     <div className="min-h-screen bg-gray-900 p-3">
       {/* Compact Header for landscape */}
@@ -99,7 +109,9 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
             </div>
             <div>
               <h1 className="text-lg font-bold text-gray-100">Margin Impact Simulator</h1>
-              <p className="text-xs text-gray-400">Analyze quote profitability in real-time</p>
+              <p className="text-xs text-gray-400">
+                {quoteData ? 'Using imported quote data' : 'Using demo data'} • {activeQuoteData.lineItems.length} items
+              </p>
             </div>
           </div>
           
@@ -133,13 +145,15 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
               max={150}
             />
             
-            <VerticalSlider
-              label="Heat Pump"
-              value={bigTicketMargin}
-              onChange={handleBigTicketChange}
-              min={0}
-              max={150}
-            />
+            {bigTicketItem && (
+              <VerticalSlider
+                label={bigTicketLabel}
+                value={bigTicketMargin}
+                onChange={handleBigTicketChange}
+                min={0}
+                max={150}
+              />
+            )}
           </div>
 
           {/* Cost Containers */}
@@ -160,13 +174,15 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
               margin={marginSettings.materialMargin}
             />
             
-            <CostContainer
-              title="Heat Pump"
-              items={bigTicketItems}
-              totalCost={bigTicketTotalCost}
-              totalPrice={bigTicketTotalPrice}
-              margin={bigTicketMargin}
-            />
+            {bigTicketItems.length > 0 && (
+              <CostContainer
+                title={bigTicketLabel}
+                items={bigTicketItems}
+                totalCost={bigTicketTotalCost}
+                totalPrice={bigTicketTotalPrice}
+                margin={bigTicketMargin}
+              />
+            )}
           </div>
         </div>
 
