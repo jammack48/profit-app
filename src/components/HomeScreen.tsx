@@ -1,105 +1,44 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Calculator, ArrowRight, Monitor, Square, Loader2 } from 'lucide-react';
+import { Camera, Calculator, ArrowRight, Monitor, Square, Loader2, Sparkles } from 'lucide-react';
 import { QuoteData } from '../types/quote';
-import { createWorker } from 'tesseract.js';
+import { parseQuoteDataWithAI } from '../services/openaiService';
 
 interface HomeScreenProps {
   onNavigateToSimulator: (quoteData?: QuoteData) => void;
 }
 
-// Simple and robust parsing function for pasted quote data
-const parseSimpleQuoteData = (text: string): QuoteData | null => {
-  try {
-    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-    const lineItems: any[] = [];
-    
-    for (const line of lines) {
-      // Skip obvious header/summary lines
-      if (line.toLowerCase().includes('name') && line.toLowerCase().includes('quantity')) continue;
-      if (line.toLowerCase().includes('subtotal')) continue;
-      if (line.toLowerCase().includes('gst amount')) continue;
-      if (line.toLowerCase().includes('total') && line.includes('$')) continue;
-      if (line.match(/^\$[\d,]+\.[\d]+$/)) continue;
-      
-      // Try to extract numbers from the line
-      const numbers = line.match(/\d+\.?\d*/g);
-      if (!numbers || numbers.length < 4) continue;
-      
-      // Get the name (everything before the first number)
-      const firstNumberIndex = line.search(/\d/);
-      if (firstNumberIndex === -1) continue;
-      
-      const name = line.substring(0, firstNumberIndex).trim();
-      if (!name) continue;
-      
-      // Parse the numbers - expect at least quantity, cost, price
-      const quantity = parseFloat(numbers[0]);
-      const cost = parseFloat(numbers[1]);
-      const price = parseFloat(numbers[2]);
-      
-      // Calculate markup if not provided
-      let markup = 0;
-      if (numbers.length > 3 && numbers[3].includes('.')) {
-        markup = parseFloat(numbers[3]);
-      } else if (cost > 0) {
-        markup = ((price - cost) / cost) * 100;
-      }
-      
-      // Determine item type
-      const type = name.toLowerCase().includes('labour') || name.toLowerCase().includes('labor') ? 'labour' : 'material';
-      
-      // Check if big ticket item
-      const isBigTicket = cost > 500 || name.toLowerCase().includes('daikin') || name.toLowerCase().includes('heat pump');
-      
-      lineItems.push({
-        id: (lineItems.length + 1).toString(),
-        name: name,
-        type: type,
-        quantity: quantity,
-        cost: cost,
-        price: price,
-        markup: markup,
-        tax: 15,
-        discount: 0,
-        total: quantity * price,
-        isBigTicket: isBigTicket,
-        maxMarkup: isBigTicket ? 25 : undefined
-      });
-    }
-    
-    if (lineItems.length > 0) {
-      return {
-        gstRate: 0.15,
-        lineItems
-      };
-    }
-    
-    return null;
-  } catch (error) {
-    console.error('Error parsing quote data:', error);
-    return null;
-  }
-};
-
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator }) => {
   const [rawLines, setRawLines] = useState('');
   const [parsedItems, setParsedItems] = useState<any[]>([]);
   const [dataConfirmed, setDataConfirmed] = useState(false);
+  const [isParsingWithAI, setIsParsingWithAI] = useState(false);
+  const [parseError, setParseError] = useState<string | null>(null);
 
-  // Simple parsing function for pasted lines
-  function parsePastedLines() {
+  // AI-powered parsing function
+  async function parseWithAI() {
     if (!rawLines.trim()) {
       alert('Please paste some quote data first.');
       return;
     }
     
-    const parsedData = parseSimpleQuoteData(rawLines);
-    if (parsedData && parsedData.lineItems.length > 0) {
-      setParsedItems(parsedData.lineItems);
-      setDataConfirmed(false);
-    } else {
-      alert('Could not parse the pasted data. Please make sure each line contains at least: Name, Quantity, Cost, Price');
+    setIsParsingWithAI(true);
+    setParseError(null);
+    
+    try {
+      const parsedData = await parseQuoteDataWithAI(rawLines);
+      if (parsedData && parsedData.length > 0) {
+        setParsedItems(parsedData);
+        setDataConfirmed(false);
+      } else {
+        setParseError('No items could be parsed from the data. Please check the format.');
+        setParsedItems([]);
+      }
+    } catch (error) {
+      console.error('AI parsing error:', error);
+      setParseError(error instanceof Error ? error.message : 'Failed to parse data with AI');
       setParsedItems([]);
+    } finally {
+      setIsParsingWithAI(false);
     }
   }
 
@@ -115,10 +54,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 p-4">
       <div className="max-w-6xl w-full mx-auto bg-gray-800 rounded-xl border border-green-700 p-6">
-        <h1 className="text-3xl font-bold text-green-200 mb-4">Quote Data Input</h1>
-        <p className="text-green-100 mb-6">
-          Simply copy and paste your quote data from any spreadsheet or table. The app will automatically detect and parse the line items.
-        </p>
+        <div className="flex items-center gap-3 mb-4">
+          <Sparkles className="w-8 h-8 text-green-400" />
+          <div>
+            <h1 className="text-3xl font-bold text-green-200">AI-Powered Quote Parser</h1>
+            <p className="text-green-100">
+              Paste your quote data and let AI intelligently parse and structure it for analysis.
+            </p>
+          </div>
+        </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Input Section */}
@@ -133,26 +77,46 @@ Labour - Dave	8.00	58.00	95.00	63.79%	15%	0%	760.00
 Switch isolator 20A	1.00	12.15	81.00	566.67%	15%	0%	81.00
 Daikin FTXM35U	1.00	1120.00	1344.00	20.00%	15%	0%	1344.00
 
-Just paste the rows from your quote table - the app will figure out the format!"
+AI will automatically detect the format and parse the data!"
               value={rawLines}
               onChange={e => setRawLines(e.target.value)}
             />
             
             <button
-              className="mt-4 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded font-semibold transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
-              onClick={parsePastedLines}
-              disabled={!rawLines.trim()}
+              className="mt-4 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white px-6 py-3 rounded font-semibold transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              onClick={parseWithAI}
+              disabled={!rawLines.trim() || isParsingWithAI}
             >
-              Parse Quote Data
+              {isParsingWithAI ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  AI Parsing...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  Parse with AI
+                </>
+              )}
             </button>
+
+            {parseError && (
+              <div className="mt-4 p-3 bg-red-900/50 border border-red-700 rounded-lg">
+                <p className="text-red-200 text-sm">{parseError}</p>
+                <p className="text-red-300 text-xs mt-1">
+                  Make sure your OpenAI API key is set in src/services/openaiService.ts
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Preview Section */}
           <div>
             {parsedItems.length > 0 ? (
               <div>
-                <h3 className="text-green-200 font-semibold mb-4 text-lg">
-                  Parsed Items ({parsedItems.length})
+                <h3 className="text-green-200 font-semibold mb-4 text-lg flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-green-400" />
+                  AI Parsed Items ({parsedItems.length})
                 </h3>
                 
                 <div className="bg-black bg-opacity-40 rounded-lg border border-green-700 max-h-64 overflow-y-auto">
@@ -173,6 +137,9 @@ Just paste the rows from your quote table - the app will figure out the format!"
                           <td className="px-2 py-2 text-gray-200 max-w-32">
                             <div className="truncate" title={item.name}>
                               {item.name}
+                              {item.isBigTicket && (
+                                <span className="ml-1 text-amber-400">⭐</span>
+                              )}
                             </div>
                           </td>
                           <td className="px-2 py-2 text-center">
@@ -204,7 +171,7 @@ Just paste the rows from your quote table - the app will figure out the format!"
                       className="w-4 h-4 text-green-600 bg-gray-700 border-gray-600 rounded focus:ring-green-500"
                     />
                     <label htmlFor="confirm-data" className="text-green-200 text-sm">
-                      Data looks correct, ready to simulate
+                      AI parsing looks correct, ready to simulate
                     </label>
                   </div>
                   
@@ -227,9 +194,9 @@ Just paste the rows from your quote table - the app will figure out the format!"
             ) : (
               <div className="text-center py-12">
                 <div className="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mb-4 mx-auto">
-                  <Calculator className="w-8 h-8 text-gray-500" />
+                  <Sparkles className="w-8 h-8 text-gray-500" />
                 </div>
-                <p className="text-gray-400">Paste your quote data and click "Parse Quote Data" to see the preview here.</p>
+                <p className="text-gray-400">Paste your quote data and click "Parse with AI" to see intelligent parsing results here.</p>
               </div>
             )}
           </div>
