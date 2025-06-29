@@ -13,6 +13,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedData, setExtractedData] = useState<QuoteData | null>(null);
 
+  // Auto-clear all data when component mounts (when navigating back from simulator)
+  useEffect(() => {
+    setPhoto(null);
+    setExtractedData(null);
+    setIsProcessing(false);
+    setIsCapturing(false);
+  }, []); // Empty dependency array means this runs once when component mounts
+
   // Generate Matrix-style characters
   useEffect(() => {
     const chars = '01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン';
