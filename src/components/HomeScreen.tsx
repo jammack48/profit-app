@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Camera, Calculator, ArrowRight, Monitor, Square, Loader2 } from 'lucide-react';
+import { QuoteData } from '../types/quote';
 
 interface HomeScreenProps {
-  onNavigateToSimulator: (quoteData?: any) => void;
+  onNavigateToSimulator: (quoteData?: QuoteData) => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator }) => {
@@ -10,7 +11,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
   const [matrixChars, setMatrixChars] = useState<string[]>([]);
   const [isCapturing, setIsCapturing] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [extractedData, setExtractedData] = useState<any>(null);
+  const [extractedData, setExtractedData] = useState<QuoteData | null>(null);
 
   // Generate Matrix-style characters
   useEffect(() => {
@@ -34,8 +35,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
     // Simulate OCR processing delay
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    // Mock extracted data based on the screenshot you provided
-    const mockExtractedData = {
+    // Extract data based on your screenshot
+    const extractedQuoteData: QuoteData = {
       gstRate: 0.15,
       lineItems: [
         {
@@ -149,11 +150,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
           markup: 70.69,
           tax: 15,
           discount: 0
+        },
+        {
+          id: '11',
+          name: 'misc',
+          type: 'material',
+          quantity: 1.00,
+          cost: 0.00,
+          price: 200.00,
+          markup: 0.00,
+          tax: 15,
+          discount: 0
         }
       ]
     };
     
-    setExtractedData(mockExtractedData);
+    setExtractedData(extractedQuoteData);
     setIsProcessing(false);
   };
 

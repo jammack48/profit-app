@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calculator, ArrowLeft, Zap } from 'lucide-react';
+import { Calculator, ArrowLeft, Zap, AlertCircle } from 'lucide-react';
 import { VerticalSlider } from './VerticalSlider';
 import { SimpleProfitDisplay } from './SimpleProfitDisplay';
 import { CostContainer } from './CostContainer';
@@ -16,15 +16,14 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
   onNavigateToHome,
   quoteData 
 }) => {
-  // Use provided quote data or fall back to sample data
+  // Use provided quote data or fall back to empty sample data
   const activeQuoteData = quoteData || sampleQuoteData;
+  const hasData = activeQuoteData.lineItems.length > 0;
   
   const [marginSettings, setMarginSettings] = useState<MarginSettings>({
     labourMargin: 63.79,
     materialMargin: 88.0,
-    bigTicketMargins: {
-      '8': 20.0 // Daikin FTXM35U from extracted data
-    }
+    bigTicketMargins: {}
   });
 
   const results = useQuoteCalculations(activeQuoteData, marginSettings);
@@ -91,6 +90,58 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
      bigTicketItem.name.includes('Daikin') ? 'Heat Pump' : 
      'Big Ticket') : 'Big Ticket';
 
+  if (!hasData) {
+    return (
+      <div className="min-h-screen bg-gray-900 p-3">
+        {/* Header */}
+        <div className="bg-gray-800 rounded-lg shadow-lg p-3 mb-3 border border-gray-700">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={onNavigateToHome}
+              className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg border border-gray-600 transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5 text-gray-300" />
+            </button>
+            
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-900 rounded-lg">
+                <Calculator className="w-5 h-5 text-blue-400" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-gray-100">Margin Impact Simulator</h1>
+                <p className="text-xs text-gray-400">No quote data loaded</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <AlertCircle className="w-3 h-3" />
+              <span>Import required</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Empty State */}
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <div className="w-24 h-24 bg-gray-800 rounded-full flex items-center justify-center mb-6 mx-auto border-2 border-dashed border-gray-600">
+              <Calculator className="w-12 h-12 text-gray-500" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-300 mb-3">No Quote Data</h2>
+            <p className="text-gray-500 mb-6 max-w-md">
+              Import a quote screenshot to start analyzing margins and calculating profits.
+            </p>
+            <button
+              onClick={onNavigateToHome}
+              className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white py-3 px-6 rounded-lg font-semibold transition-all shadow-lg"
+            >
+              Import Quote Data
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-900 p-3">
       {/* Compact Header for landscape */}
@@ -110,7 +161,7 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
             <div>
               <h1 className="text-lg font-bold text-gray-100">Margin Impact Simulator</h1>
               <p className="text-xs text-gray-400">
-                {quoteData ? 'Using imported quote data' : 'Using demo data'} • {activeQuoteData.lineItems.length} items
+                {quoteData ? 'Using imported quote data' : 'No data loaded'} • {activeQuoteData.lineItems.length} items
               </p>
             </div>
           </div>
