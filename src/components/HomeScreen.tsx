@@ -6,6 +6,165 @@ interface HomeScreenProps {
   onNavigateToSimulator: (quoteData?: QuoteData) => void;
 }
 
+// Sample quote variations to simulate different types of jobs
+const sampleQuotes = {
+  electrical: {
+    gstRate: 0.15,
+    lineItems: [
+      {
+        id: '1',
+        name: 'Labour - Dave',
+        type: 'labour' as const,
+        quantity: 8.00,
+        cost: 58.00,
+        price: 95.00,
+        markup: 63.79,
+        tax: 15,
+        discount: 0
+      },
+      {
+        id: '2',
+        name: '55650320 Switch isolator 20A 2P IP66 small NL120S N-line',
+        type: 'material' as const,
+        quantity: 1.00,
+        cost: 12.15,
+        price: 81.00,
+        markup: 566.67,
+        tax: 15,
+        discount: 0
+      },
+      {
+        id: '3',
+        name: '30800040 Conduit flex 25mm uPVC GY prm 25m 30.25G Marley',
+        type: 'material' as const,
+        quantity: 5.00,
+        cost: 2.17,
+        price: 12.03,
+        markup: 454.38,
+        tax: 15,
+        discount: 0
+      },
+      {
+        id: '4',
+        name: '41412000 Anchor wall dog 38mm SQ pk26 ELWDSA38SD Elmark',
+        type: 'material' as const,
+        quantity: 1.00,
+        cost: 15.87,
+        price: 24.83,
+        markup: 56.46,
+        tax: 15,
+        discount: 0
+      },
+      {
+        id: '5',
+        name: '49140020 Tape duct 48mmx30m utility BK 330282027 Tiki Tape',
+        type: 'material' as const,
+        quantity: 1.00,
+        cost: 10.82,
+        price: 14.42,
+        markup: 33.27,
+        tax: 15,
+        discount: 0
+      },
+      {
+        id: '6',
+        name: '44320220 Cable tie std 200x4.0mm NAT pk100 EL3004 Elmark',
+        type: 'material' as const,
+        quantity: 0.10,
+        cost: 16.46,
+        price: 41.16,
+        markup: 149.70,
+        tax: 15,
+        discount: 0
+      },
+      {
+        id: '7',
+        name: '48450040 Silicone industrial 300ml CL 30804311 Bostik',
+        type: 'material' as const,
+        quantity: 0.50,
+        cost: 18.08,
+        price: 24.10,
+        markup: 33.30,
+        tax: 15,
+        discount: 0
+      },
+      {
+        id: '8',
+        name: 'Labour - Electrician',
+        type: 'labour' as const,
+        quantity: 8.00,
+        cost: 58.00,
+        price: 99.00,
+        markup: 70.69,
+        tax: 15,
+        discount: 0
+      },
+      {
+        id: '9',
+        name: 'misc',
+        type: 'material' as const,
+        quantity: 1.00,
+        cost: 0.00,
+        price: 200.00,
+        markup: 0.00,
+        tax: 15,
+        discount: 0
+      }
+    ]
+  },
+  hvac: {
+    gstRate: 0.15,
+    lineItems: [
+      {
+        id: '1',
+        name: 'Labour - Dave',
+        type: 'labour' as const,
+        quantity: 6.00,
+        cost: 58.00,
+        price: 95.00,
+        markup: 63.79,
+        tax: 15,
+        discount: 0
+      },
+      {
+        id: '2',
+        name: 'Daikin FTXM35U Heat Pump',
+        type: 'material' as const,
+        quantity: 1.00,
+        cost: 1120.00,
+        price: 1344.00,
+        markup: 20.00,
+        tax: 15,
+        discount: 0,
+        isBigTicket: true,
+        maxMarkup: 25
+      },
+      {
+        id: '3',
+        name: 'Wifi Module',
+        type: 'material' as const,
+        quantity: 1.00,
+        cost: 118.00,
+        price: 141.60,
+        markup: 20.00,
+        tax: 15,
+        discount: 0
+      },
+      {
+        id: '4',
+        name: 'Installation Kit',
+        type: 'material' as const,
+        quantity: 1.00,
+        cost: 85.00,
+        price: 159.80,
+        markup: 88.00,
+        tax: 15,
+        discount: 0
+      }
+    ]
+  }
+};
+
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator }) => {
   const [photo, setPhoto] = useState<string | null>(null);
   const [matrixChars, setMatrixChars] = useState<string[]>([]);
@@ -43,137 +202,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
     // Simulate OCR processing delay
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    // Extract data based on your screenshot
-    const extractedQuoteData: QuoteData = {
-      gstRate: 0.15,
-      lineItems: [
-        {
-          id: '1',
-          name: 'Labour - Dave',
-          type: 'labour',
-          quantity: 8.00,
-          cost: 58.00,
-          price: 95.00,
-          markup: 63.79,
-          tax: 15,
-          discount: 0
-        },
-        {
-          id: '2',
-          name: '55650320 Switch isolator 20A 2P IP66 small NL120S N-line',
-          type: 'material',
-          quantity: 1.00,
-          cost: 12.15,
-          price: 81.00,
-          markup: 566.67,
-          tax: 15,
-          discount: 0
-        },
-        {
-          id: '3',
-          name: '30800040 Conduit flex 25mm uPVC GY prm 25m 30.25G Marley',
-          type: 'material',
-          quantity: 5.00,
-          cost: 2.17,
-          price: 12.03,
-          markup: 454.38,
-          tax: 15,
-          discount: 0
-        },
-        {
-          id: '4',
-          name: '41412000 Anchor wall dog 38mm SQ pk26 ELWDSA38SD Elmark',
-          type: 'material',
-          quantity: 1.00,
-          cost: 15.87,
-          price: 24.83,
-          markup: 56.46,
-          tax: 15,
-          discount: 0
-        },
-        {
-          id: '5',
-          name: '49140020 Tape duct 48mmx30m utility BK 330282027 Tiki Tape',
-          type: 'material',
-          quantity: 1.00,
-          cost: 10.82,
-          price: 14.42,
-          markup: 33.27,
-          tax: 15,
-          discount: 0
-        },
-        {
-          id: '6',
-          name: '44320220 Cable tie std 200x4.0mm NAT pk100 EL3004 Elmark',
-          type: 'material',
-          quantity: 0.10,
-          cost: 16.46,
-          price: 41.16,
-          markup: 149.70,
-          tax: 15,
-          discount: 0
-        },
-        {
-          id: '7',
-          name: '48450040 Silicone industrial 300ml CL 30804311 Bostik',
-          type: 'material',
-          quantity: 0.50,
-          cost: 18.08,
-          price: 24.10,
-          markup: 33.30,
-          tax: 15,
-          discount: 0
-        },
-        {
-          id: '8',
-          name: 'Daikin FTXM35U',
-          type: 'material',
-          quantity: 1.00,
-          cost: 1120.00,
-          price: 1344.00,
-          markup: 20.00,
-          tax: 15,
-          discount: 0,
-          isBigTicket: true,
-          maxMarkup: 25
-        },
-        {
-          id: '9',
-          name: 'Wifi Module',
-          type: 'material',
-          quantity: 1.00,
-          cost: 118.00,
-          price: 141.60,
-          markup: 20.00,
-          tax: 15,
-          discount: 0
-        },
-        {
-          id: '10',
-          name: 'Labour - Electrician',
-          type: 'labour',
-          quantity: 8.00,
-          cost: 58.00,
-          price: 99.00,
-          markup: 70.69,
-          tax: 15,
-          discount: 0
-        },
-        {
-          id: '11',
-          name: 'misc',
-          type: 'material',
-          quantity: 1.00,
-          cost: 0.00,
-          price: 200.00,
-          markup: 0.00,
-          tax: 15,
-          discount: 0
-        }
-      ]
-    };
+    // Simulate different quote types based on random selection
+    // In a real app, this would be OCR analysis of the image
+    const quoteTypes = Object.keys(sampleQuotes);
+    const randomType = quoteTypes[Math.floor(Math.random() * quoteTypes.length)];
+    const selectedQuote = sampleQuotes[randomType as keyof typeof sampleQuotes];
     
-    setExtractedData(extractedQuoteData);
+    console.log(`Simulating ${randomType} quote type`);
+    
+    setExtractedData(selectedQuote);
     setIsProcessing(false);
   };
 
@@ -449,6 +486,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
                   </p>
                   <div className="text-xs text-green-300">
                     {extractedData.lineItems.length} items found
+                    {extractedData.lineItems.some(item => item.isBigTicket) && (
+                      <span className="ml-2 text-amber-400">• Big-ticket items detected</span>
+                    )}
                   </div>
                 </div>
               )}
