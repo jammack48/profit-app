@@ -237,8 +237,12 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
           </div>
         </div>
 
-        {/* Results */}
-        <SimpleProfitDisplay results={results} />
+        {/* Results - Now with proper category breakdown */}
+        <SimpleProfitDisplay 
+          results={results} 
+          quoteData={activeQuoteData}
+          marginSettings={marginSettings}
+        />
       </div>
     </div>
   );
