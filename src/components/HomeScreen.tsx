@@ -166,93 +166,137 @@ const sampleQuotes = {
   }
 };
 
-// OCR Text Parsing Functions
-const parseQuoteText = (text: string): QuoteData | null => {
+// Enhanced parsing function for standard tabular format
+const parseStandardQuoteFormat = (text: string): QuoteData | null => {
   try {
-    const lines = text.split('\n').filter(line => line.trim());
-    
-    // Look for common quote patterns
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
     const lineItems: any[] = [];
-    let gstRate = 0.15; // Default GST rate
     
-    // Extract line items (items with quantities and prices)
-    lines.forEach((line, index) => {
-      // Look for patterns like: "Item Name Qty: 2 Price: $100"
-      const quantityMatch = line.match(/(\d+(?:\.\d+)?)\s*(?:x|@|qty|quantity)/i);
-      const priceMatch = line.match(/\$?(\d+(?:\.\d+)?)/g);
+    // Skip header line if present
+    let startIndex = 0;
+    if (lines[0] && lines[0].toLowerCase().includes('name') && lines[0].toLowerCase().includes('quantity')) {
+      startIndex = 1;
+    }
+    
+    for (let i = startIndex; i < lines.length; i++) {
+      const line = lines[i];
       
-      if (quantityMatch && priceMatch && priceMatch.length >= 2) {
-        const quantity = parseFloat(quantityMatch[1]);
-        const cost = parseFloat(priceMatch[0].replace('$', ''));
-        const price = parseFloat(priceMatch[1].replace('$', ''));
-        
-        // Extract item name (everything before the quantity)
-        const name = line.substring(0, line.indexOf(quantityMatch[0])).trim();
-        
-        if (name && quantity && cost && price) {
-          lineItems.push({
-            id: (index + 1).toString(),
-            name: name,
-            type: 'material' as const,
-            quantity: quantity,
-            cost: cost,
-            price: price,
-            markup: ((price - cost) / cost) * 100,
-            tax: 15,
-            discount: 0
-          });
-        }
+      // Skip summary lines (Subtotal, GST Amount, Total)
+      if (line.toLowerCase().includes('subtotal') || 
+          line.toLowerCase().includes('gst') || 
+          line.toLowerCase().includes('total') ||
+          line.match(/^\$[\d,]+\.[\d]+$/)) {
+        continue;
       }
-    });
+      
+      // Parse each line - handle various formats
+      const parsed = parseQuoteLine(line);
+      if (parsed) {
+        lineItems.push({
+          id: (lineItems.length + 1).toString(),
+          ...parsed,
+          type: determineItemType(parsed.name),
+          tax: 15,
+          discount: 0,
+          isBigTicket: isBigTicketItem(parsed.name, parsed.cost),
+          maxMarkup: isBigTicketItem(parsed.name, parsed.cost) ? 25 : undefined
+        });
+      }
+    }
     
-    // If we found line items, return the parsed data
     if (lineItems.length > 0) {
       return {
-        gstRate,
+        gstRate: 0.15,
         lineItems
       };
     }
     
     return null;
   } catch (error) {
-    console.error('Error parsing quote text:', error);
+    console.error('Error parsing standard quote format:', error);
     return null;
   }
 };
 
-const parseQuoteTextEnhanced = (text: string): QuoteData | null => {
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  const lineItems: any[] = [];
-
-  for (const line of lines) {
-    // Find the index of the first digit (quantity)
-    const firstDigitIdx = line.search(/\d/);
-    if (firstDigitIdx === -1) continue;
-    const name = line.slice(0, firstDigitIdx).trim();
-    const rest = line.slice(firstDigitIdx);
-    // More flexible regex: allow optional $ and commas, flexible spaces
-    const match = rest.match(/^(\d+(?:\.\d+)?)\s*\$?([\d,]+\.\d+)\s*\$?([\d,]+\.\d+)\s*([\d.]+)%\s*([\d.]+)%\s*([\d.]+)%\s*\$?([\d,]+\.\d+)/);
-    if (match) {
-      lineItems.push({
-        name,
-        quantity: parseFloat(match[1]),
-        cost: parseFloat(match[2].replace(/,/g, '')),
-        price: parseFloat(match[3].replace(/,/g, '')),
-        markup: parseFloat(match[4]),
-        tax: parseFloat(match[5]),
-        discount: parseFloat(match[6]),
-        total: parseFloat(match[7].replace(/,/g, '')),
-      });
-    } else {
-      // For debugging: log lines that don't match
-      if (rest.length > 0) {
-        // Only log if there's something after the name
-        // eslint-disable-next-line no-console
-        console.log('No match for line:', line);
-      }
-    }
+// Parse individual quote line with multiple format support
+const parseQuoteLine = (line: string) => {
+  // Remove extra whitespace and normalize
+  line = line.replace(/\s+/g, ' ').trim();
+  
+  // Try different parsing patterns
+  
+  // Pattern 1: Tab-separated or multiple spaces
+  const tabPattern = /^(.+?)\s+(\d+\.?\d*)\s+\$?([\d,]+\.?\d*)\s+\$?([\d,]+\.?\d*)\s+([\d.]+)%\s+(\d+)%\s+(\d+)%\s+\$?([\d,]+\.?\d*)$/;
+  let match = line.match(tabPattern);
+  
+  if (match) {
+    return {
+      name: match[1].trim(),
+      quantity: parseFloat(match[2]),
+      cost: parseFloat(match[3].replace(/,/g, '')),
+      price: parseFloat(match[4].replace(/,/g, '')),
+      markup: parseFloat(match[5]),
+      total: parseFloat(match[8].replace(/,/g, ''))
+    };
   }
-  return { gstRate: 0.15, lineItems };
+  
+  // Pattern 2: More flexible spacing
+  const flexPattern = /^(.+?)\s+(\d+\.?\d*)\s+\$?([\d,]+\.?\d*)\s+\$?([\d,]+\.?\d*)\s+([\d.]+)%/;
+  match = line.match(flexPattern);
+  
+  if (match) {
+    const quantity = parseFloat(match[2]);
+    const cost = parseFloat(match[3].replace(/,/g, ''));
+    const price = parseFloat(match[4].replace(/,/g, ''));
+    
+    return {
+      name: match[1].trim(),
+      quantity,
+      cost,
+      price,
+      markup: parseFloat(match[5]),
+      total: quantity * price
+    };
+  }
+  
+  // Pattern 3: Simple format with just name, quantity, cost, price
+  const simplePattern = /^(.+?)\s+(\d+\.?\d*)\s+\$?([\d,]+\.?\d*)\s+\$?([\d,]+\.?\d*)$/;
+  match = line.match(simplePattern);
+  
+  if (match) {
+    const quantity = parseFloat(match[2]);
+    const cost = parseFloat(match[3].replace(/,/g, ''));
+    const price = parseFloat(match[4].replace(/,/g, ''));
+    const markup = cost > 0 ? ((price - cost) / cost) * 100 : 0;
+    
+    return {
+      name: match[1].trim(),
+      quantity,
+      cost,
+      price,
+      markup,
+      total: quantity * price
+    };
+  }
+  
+  return null;
+};
+
+// Determine if item is labour or material
+const determineItemType = (name: string): 'labour' | 'material' => {
+  const labourKeywords = ['labour', 'labor', 'electrician', 'technician', 'installer', 'worker'];
+  const nameLower = name.toLowerCase();
+  
+  return labourKeywords.some(keyword => nameLower.includes(keyword)) ? 'labour' : 'material';
+};
+
+// Determine if item is big-ticket (high value items that typically have lower margins)
+const isBigTicketItem = (name: string, cost: number): boolean => {
+  const bigTicketKeywords = ['daikin', 'mitsubishi', 'panasonic', 'heat pump', 'air conditioner', 'hvac unit'];
+  const nameLower = name.toLowerCase();
+  
+  // Check by name keywords or high cost threshold
+  return bigTicketKeywords.some(keyword => nameLower.includes(keyword)) || cost > 500;
 };
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator }) => {
@@ -308,20 +352,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
       console.log('Extracted text:', text);
       
       // Parse the extracted text to find quote data
-      const parsedData = parseQuoteTextEnhanced(text);
-      if (!parsedData) {
-        const fallbackData = parseQuoteText(text);
-        if (fallbackData) {
-          setExtractedData(fallbackData);
-        } else {
-          // Fallback to sample data if parsing fails
-          const quoteTypes = Object.keys(sampleQuotes);
-          const randomType = quoteTypes[Math.floor(Math.random() * quoteTypes.length)];
-          const selectedQuote = sampleQuotes[randomType as keyof typeof sampleQuotes];
-          setExtractedData(selectedQuote);
-        }
-      } else {
+      const parsedData = parseStandardQuoteFormat(text);
+      if (parsedData) {
         setExtractedData(parsedData);
+      } else {
+        // Fallback to sample data if parsing fails
+        const quoteTypes = Object.keys(sampleQuotes);
+        const randomType = quoteTypes[Math.floor(Math.random() * quoteTypes.length)];
+        const selectedQuote = sampleQuotes[randomType as keyof typeof sampleQuotes];
+        setExtractedData(selectedQuote);
       }
       
       setOcrText(text);
@@ -432,119 +471,139 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onNavigateToSimulator })
 
   const isDataReady = photo && extractedData && !isProcessing;
 
-  // Parsing function for pasted lines
+  // Enhanced parsing function for pasted lines
   function parsePastedLines() {
-    const lines = rawLines.split('\n').map(l => l.trim()).filter(Boolean);
-    const items: any[] = [];
-    for (const line of lines) {
-      // Find the index of the first digit (quantity)
-      const firstDigitIdx = line.search(/\d/);
-      if (firstDigitIdx === -1) continue;
-      const name = line.slice(0, firstDigitIdx).trim();
-      const rest = line.slice(firstDigitIdx);
-      // Extract all numbers, including those with commas, decimals, and percentages
-      // This will match numbers, numbers with $, and numbers with %
-      const matches = [...rest.matchAll(/(\d+(?:,\d{3})*(?:\.\d+)?)/g)];
-      const percentMatches = [...rest.matchAll(/([\d.]+)%/g)];
-      // Fallback: If we have at least 7 numbers, assign them in order
-      if (matches.length >= 7) {
-        const [quantity, cost, price, markup, tax, discount, total] = matches.map(m => m[1].replace(/,/g, ''));
-        items.push({
-          name,
-          quantity: parseFloat(quantity),
-          cost: parseFloat(cost),
-          price: parseFloat(price),
-          markup: percentMatches[0] ? parseFloat(percentMatches[0][1]) : parseFloat(markup),
-          tax: percentMatches[1] ? parseFloat(percentMatches[1][1]) : parseFloat(tax),
-          discount: percentMatches[2] ? parseFloat(percentMatches[2][1]) : parseFloat(discount),
-          total: parseFloat(total),
-        });
-      }
+    const parsedData = parseStandardQuoteFormat(rawLines);
+    if (parsedData && parsedData.lineItems.length > 0) {
+      setParsedItems(parsedData.lineItems);
+      setDataConfirmed(false);
+    } else {
+      // If parsing fails, show error message
+      alert('Could not parse the pasted data. Please check the format and try again.');
+      setParsedItems([]);
     }
-    setParsedItems(items);
-    setDataConfirmed(false);
   }
 
   function handleConfirmAndSimulate() {
     if (parsedItems.length > 0) {
       onNavigateToSimulator({
         gstRate: 0.15,
-        lineItems: parsedItems.map((item, idx) => ({
-          id: (idx + 1).toString(),
-          name: item.name,
-          type: 'material', // or infer from name if needed
-          quantity: item.quantity,
-          cost: item.cost,
-          price: item.price,
-          markup: item.markup,
-          tax: item.tax,
-          discount: item.discount,
-          total: item.total,
-        })),
+        lineItems: parsedItems
       });
     }
   }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900">
-      <div className="max-w-2xl w-full mx-auto my-8 p-6 bg-gray-800 rounded-xl border border-green-700">
-        <h1 className="text-3xl font-bold text-green-200 mb-4">Paste Quote Data</h1>
-        <p className="text-green-100 mb-4">Copy and paste your quote lines below, then process and go to the calculator.</p>
+      <div className="max-w-4xl w-full mx-auto my-8 p-6 bg-gray-800 rounded-xl border border-green-700">
+        <h1 className="text-3xl font-bold text-green-200 mb-4">Quote Data Input</h1>
+        <p className="text-green-100 mb-6">
+          Copy and paste your quote data below. The app supports standard tabular formats with columns for:
+          <br />
+          <span className="text-green-300 font-mono text-sm">Name | Quantity | Cost | Price | Markup% | Tax% | Discount% | Total</span>
+        </p>
+        
         <textarea
-          className="w-full h-40 p-2 rounded bg-black text-green-200 border border-green-700 mb-2"
-          placeholder="Paste each line from your quote here..."
+          className="w-full h-48 p-4 rounded bg-black text-green-200 border border-green-700 mb-4 font-mono text-sm"
+          placeholder="Paste your quote data here...
+
+Example format:
+Labour - Dave	8.00	$58.00	$95.00	63.79%	15%	0%	$760.00
+Switch isolator 20A	1.00	$12.15	$81.00	566.67%	15%	0%	$81.00
+Daikin FTXM35U	1.00	$1,120.00	$1,344.00	20.00%	15%	0%	$1,344.00"
           value={rawLines}
           onChange={e => setRawLines(e.target.value)}
         />
+        
         <button
-          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold mb-4"
+          className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded font-semibold mb-6 transition-colors"
           onClick={parsePastedLines}
+          disabled={!rawLines.trim()}
         >
-          Process Data
+          Process Quote Data
         </button>
+
         {parsedItems.length > 0 && (
-          <div className="my-4">
-            <h3 className="text-green-200 font-semibold mb-2">Parsed Line Items</h3>
-            <table className="min-w-full text-xs border border-green-700 bg-black bg-opacity-40 rounded">
-              <thead>
-                <tr>
-                  <th className="px-2 py-1 border-b border-green-700">Name</th>
-                  <th className="px-2 py-1 border-b border-green-700">Quantity</th>
-                  <th className="px-2 py-1 border-b border-green-700">Cost</th>
-                  <th className="px-2 py-1 border-b border-green-700">Price</th>
-                  <th className="px-2 py-1 border-b border-green-700">Markup</th>
-                  <th className="px-2 py-1 border-b border-green-700">Tax</th>
-                  <th className="px-2 py-1 border-b border-green-700">Discount</th>
-                  <th className="px-2 py-1 border-b border-green-700">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {parsedItems.map((item, idx) => (
-                  <tr key={idx}>
-                    <td className="px-2 py-1 border-b border-green-900">{item.name}</td>
-                    <td className="px-2 py-1 border-b border-green-900">{item.quantity}</td>
-                    <td className="px-2 py-1 border-b border-green-900">{item.cost}</td>
-                    <td className="px-2 py-1 border-b border-green-900">{item.price}</td>
-                    <td className="px-2 py-1 border-b border-green-900">{item.markup}</td>
-                    <td className="px-2 py-1 border-b border-green-900">{item.tax}</td>
-                    <td className="px-2 py-1 border-b border-green-900">{item.discount}</td>
-                    <td className="px-2 py-1 border-b border-green-900">{item.total}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="mt-2 flex items-center gap-2">
-              <input type="checkbox" id="confirm-data" checked={dataConfirmed} onChange={e => setDataConfirmed(e.target.checked)} />
-              <label htmlFor="confirm-data" className="text-green-200 text-xs">I confirm the data above is correct</label>
+          <div className="my-6">
+            <h3 className="text-green-200 font-semibold mb-4 text-lg">Parsed Line Items ({parsedItems.length} items)</h3>
+            
+            <div className="bg-black bg-opacity-40 rounded-lg overflow-hidden border border-green-700">
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-xs">
+                  <thead className="bg-green-900 bg-opacity-50">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-green-200 font-semibold">Name</th>
+                      <th className="px-3 py-2 text-center text-green-200 font-semibold">Type</th>
+                      <th className="px-3 py-2 text-center text-green-200 font-semibold">Qty</th>
+                      <th className="px-3 py-2 text-center text-green-200 font-semibold">Cost</th>
+                      <th className="px-3 py-2 text-center text-green-200 font-semibold">Price</th>
+                      <th className="px-3 py-2 text-center text-green-200 font-semibold">Markup</th>
+                      <th className="px-3 py-2 text-center text-green-200 font-semibold">Total</th>
+                      <th className="px-3 py-2 text-center text-green-200 font-semibold">Big Ticket</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {parsedItems.map((item, idx) => (
+                      <tr key={idx} className="border-b border-green-900 hover:bg-green-900 hover:bg-opacity-20">
+                        <td className="px-3 py-2 text-gray-200 max-w-xs">
+                          <div className="truncate" title={item.name}>
+                            {item.name}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            item.type === 'labour' 
+                              ? 'bg-blue-900 text-blue-200' 
+                              : 'bg-green-900 text-green-200'
+                          }`}>
+                            {item.type}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-center text-gray-200">{item.quantity}</td>
+                        <td className="px-3 py-2 text-center text-gray-200">${item.cost.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-center text-gray-200">${item.price.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-center text-gray-200">{item.markup.toFixed(1)}%</td>
+                        <td className="px-3 py-2 text-center text-gray-200">${(item.total || (item.quantity * item.price)).toFixed(2)}</td>
+                        <td className="px-3 py-2 text-center">
+                          {item.isBigTicket && (
+                            <span className="px-2 py-1 bg-amber-900 text-amber-200 rounded text-xs font-medium">
+                              Yes
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
+            
+            <div className="mt-4 flex items-center gap-3">
+              <input 
+                type="checkbox" 
+                id="confirm-data" 
+                checked={dataConfirmed} 
+                onChange={e => setDataConfirmed(e.target.checked)}
+                className="w-4 h-4 text-green-600 bg-gray-700 border-gray-600 rounded focus:ring-green-500"
+              />
+              <label htmlFor="confirm-data" className="text-green-200 text-sm">
+                I confirm the parsed data above is correct and ready for simulation
+              </label>
+            </div>
+            
             <button
-              className={`mt-4 py-2 px-6 rounded-xl font-semibold text-lg transition-all shadow-lg border ${
-                dataConfirmed ? 'bg-gradient-to-r from-green-600 to-blue-600 text-white hover:from-green-700 hover:to-blue-700 border-green-500/30' : 'bg-gray-600 text-gray-400 cursor-not-allowed border-gray-500/30'
+              className={`mt-6 py-3 px-8 rounded-xl font-semibold text-lg transition-all shadow-lg border ${
+                dataConfirmed 
+                  ? 'bg-gradient-to-r from-green-600 to-blue-600 text-white hover:from-green-700 hover:to-blue-700 border-green-500/30 transform hover:scale-105' 
+                  : 'bg-gray-600 text-gray-400 cursor-not-allowed border-gray-500/30'
               }`}
               onClick={handleConfirmAndSimulate}
               disabled={!dataConfirmed}
             >
-              Go to Calculator
+              <div className="flex items-center gap-2">
+                <Calculator className="w-5 h-5" />
+                Launch Margin Simulator
+              </div>
             </button>
           </div>
         )}
