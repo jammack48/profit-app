@@ -6,10 +6,8 @@ export type Screen = 'home' | 'simulator';
 
 function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('home');
-  const [userName, setUserName] = useState('');
 
-  const navigateToSimulator = (name: string) => {
-    setUserName(name);
+  const navigateToSimulator = () => {
     setCurrentScreen('simulator');
   };
 
@@ -22,10 +20,7 @@ function App() {
       {currentScreen === 'home' ? (
         <HomeScreen onNavigateToSimulator={navigateToSimulator} />
       ) : (
-        <SimulatorScreen 
-          userName={userName} 
-          onNavigateToHome={navigateToHome} 
-        />
+        <SimulatorScreen onNavigateToHome={navigateToHome} />
       )}
     </div>
   );
