@@ -23,7 +23,7 @@ export const VerticalSlider: React.FC<VerticalSliderProps> = ({
 
   return (
     <div className="flex flex-col items-center h-full">
-      <div className="text-xs font-medium text-gray-300 mb-2 text-center">
+      <div className="text-xs font-medium text-white/80 mb-2 text-center">
         {label}
       </div>
       
@@ -40,12 +40,12 @@ export const VerticalSlider: React.FC<VerticalSliderProps> = ({
             writingMode: 'bt-lr',
             WebkitAppearance: 'slider-vertical',
             width: '8px',
-            height: '128px'
+            height: '120px'
           }}
         />
       </div>
       
-      <div className="text-lg font-bold text-blue-400 mb-1">
+      <div className="text-sm font-bold text-blue-400 mb-1">
         {value.toFixed(1)}%
       </div>
     </div>

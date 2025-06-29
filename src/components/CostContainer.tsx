@@ -1,5 +1,5 @@
 import React from 'react';
-import { Package, User } from 'lucide-react';
+import { Package, User, Zap } from 'lucide-react';
 
 interface CostContainerProps {
   title: string;
@@ -33,63 +33,51 @@ export const CostContainer: React.FC<CostContainerProps> = ({
     }).format(amount);
   };
 
-  const getIcon = (type: 'labour' | 'material') => {
+  const getIcon = (type: 'labour' | 'material', isBigTicket?: boolean) => {
+    if (isBigTicket) return <Zap className="w-3 h-3 text-yellow-400" />;
     return type === 'labour' ? 
       <User className="w-3 h-3 text-blue-400" /> : 
       <Package className="w-3 h-3 text-green-400" />;
   };
 
-  // Create array of 5 items, padding with empty items if needed
-  const paddedItems = [...items];
-  while (paddedItems.length < 5) {
-    paddedItems.push({
-      id: `empty-${paddedItems.length}`,
-      name: '',
-      cost: 0,
-      adjustedPrice: 0,
-      quantity: 0,
-      type: 'material' as const,
-      isEmpty: true
-    });
-  }
+  const profit = totalPrice - totalCost;
+  const profitColor = profit > 0 ? 'text-green-400' : 'text-red-400';
 
   return (
-    <div className="bg-gray-800 rounded-lg p-3 border border-gray-700">
+    <div className="bg-white/5 backdrop-blur-sm rounded-lg p-3 border border-white/10">
       <div className="flex items-center justify-between mb-2">
-        <h4 className="text-sm font-semibold text-gray-200">{title}</h4>
-        <div className="text-xs text-gray-400">{margin.toFixed(1)}%</div>
+        <h4 className="text-xs font-semibold text-white">{title}</h4>
+        <div className="text-xs text-blue-400 font-medium">{margin.toFixed(1)}%</div>
       </div>
       
-      <div className="space-y-1 mb-2 h-20">
-        {paddedItems.slice(0, 5).map((item, index) => (
-          <div key={item.id || `empty-${index}`} className="flex items-center justify-between text-xs h-3.5">
-            {!item.isEmpty && (
-              <>
-                <div className="flex items-center gap-1 flex-1 min-w-0">
-                  {getIcon(item.type)}
-                  <span className="truncate text-gray-300">
-                    {item.name.length > 20 ? `${item.name.substring(0, 20)}...` : item.name}
-                  </span>
-                </div>
-                <div className="text-right ml-1">
-                  <div className="font-medium text-gray-100">
-                    {formatCurrency(item.adjustedPrice * item.quantity)}
-                  </div>
-                </div>
-              </>
-            )}
+      <div className="space-y-1 mb-3">
+        {items.slice(0, 3).map((item) => (
+          <div key={item.id} className="flex items-center gap-1">
+            {getIcon(item.type, item.isBigTicket)}
+            <span className="text-xs text-white/70 truncate flex-1">
+              {item.name.length > 15 ? `${item.name.substring(0, 15)}...` : item.name}
+            </span>
           </div>
         ))}
+        {items.length > 3 && (
+          <div className="text-xs text-white/50">
+            +{items.length - 3} more items
+          </div>
+        )}
       </div>
       
-      <div className="border-t border-gray-700 pt-2">
-        <div className="flex justify-between text-xs text-gray-400 mb-1">
-          <span>Cost:</span>
-          <span>{formatCurrency(totalCost)}</span>
+      <div className="border-t border-white/10 pt-2 space-y-1">
+        <div className="flex justify-between text-xs">
+          <span className="text-white/60">Cost:</span>
+          <span className="text-white/80">{formatCurrency(totalCost)}</span>
         </div>
-        <div className="flex justify-between text-sm font-bold">
-          <span className="text-gray-200">Price:</span>
-          <span className="text-blue-400">{formatCurrency(totalPrice)}</span>
+        <div className="flex justify-between text-xs">
+          <span className="text-white/60">Price:</span>
+          <span className="text-blue-400 font-medium">{formatCurrency(totalPrice)}</span>
+        </div>
+        <div className="flex justify-between text-xs">
+          <span className="text-white/60">Profit:</span>
+          <span className={`font-medium ${profitColor}`}>{formatCurrency(profit)}</span>
         </div>
       </div>
     </div>
