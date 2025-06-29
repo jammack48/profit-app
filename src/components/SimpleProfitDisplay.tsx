@@ -20,32 +20,51 @@ export const SimpleProfitDisplay: React.FC<SimpleProfitDisplayProps> = ({ result
     <div className="bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-700">
       <div className="flex items-center gap-2 mb-6">
         <TrendingUp className="w-5 h-5 text-green-400" />
-        <h2 className="text-lg font-bold text-gray-100">Quote Summary</h2>
+        <h2 className="text-lg font-bold text-gray-100">Profit Calc</h2>
       </div>
 
-      {/* Vertical Stack like Spreadsheet */}
-      <div className="space-y-4">
-        {/* Labour */}
-        <div className="flex justify-between items-center py-2 border-b border-gray-700">
-          <span className="text-gray-300">Labour</span>
-          <span className="font-medium text-gray-100">{formatCurrency(results.totalCost * 0.35)}</span>
+      {/* Cost vs Price Comparison */}
+      <div className="space-y-4 mb-6">
+        {/* Header Row */}
+        <div className="grid grid-cols-3 gap-4 text-xs font-semibold text-gray-400 border-b border-gray-700 pb-2">
+          <span>Category</span>
+          <span className="text-center">Raw Cost</span>
+          <span className="text-center">Marked Up Price</span>
         </div>
 
-        {/* Materials */}
-        <div className="flex justify-between items-center py-2 border-b border-gray-700">
-          <span className="text-gray-300">Materials</span>
-          <span className="font-medium text-gray-100">{formatCurrency(results.totalCost * 0.65)}</span>
+        {/* Labour Row */}
+        <div className="grid grid-cols-3 gap-4 py-2 border-b border-gray-700">
+          <span className="text-gray-300 flex items-center">
+            <div className="w-2 h-2 bg-blue-400 rounded-full mr-2"></div>
+            Labour
+          </span>
+          <span className="font-medium text-gray-200 text-center">{formatCurrency(results.totalCost * 0.35)}</span>
+          <span className="font-medium text-blue-400 text-center">{formatCurrency(results.subtotal * 0.4)}</span>
         </div>
 
-        {/* Profit */}
-        <div className="flex justify-between items-center py-2 border-b border-gray-700">
-          <span className="text-green-400">Profit</span>
-          <span className="font-bold text-green-400">{formatCurrency(results.grossProfit)}</span>
+        {/* Materials Row */}
+        <div className="grid grid-cols-3 gap-4 py-2 border-b border-gray-700">
+          <span className="text-gray-300 flex items-center">
+            <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+            Materials
+          </span>
+          <span className="font-medium text-gray-200 text-center">{formatCurrency(results.totalCost * 0.65)}</span>
+          <span className="font-medium text-green-400 text-center">{formatCurrency(results.subtotal * 0.6)}</span>
+        </div>
+
+        {/* Profit Row */}
+        <div className="grid grid-cols-3 gap-4 py-2 border-b border-gray-700 bg-gray-750 rounded-lg px-3">
+          <span className="text-green-400 font-semibold flex items-center">
+            <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+            Profit
+          </span>
+          <span className="font-bold text-gray-400 text-center">—</span>
+          <span className="font-bold text-green-400 text-center">{formatCurrency(results.grossProfit)}</span>
         </div>
       </div>
 
       {/* Additional Details */}
-      <div className="mt-6 pt-4 border-t border-gray-700 space-y-2">
+      <div className="space-y-2 border-t border-gray-700 pt-4">
         <div className="flex justify-between text-sm">
           <span className="text-gray-400">Subtotal:</span>
           <span className="font-medium text-gray-200">{formatCurrency(results.subtotal)}</span>
@@ -55,10 +74,16 @@ export const SimpleProfitDisplay: React.FC<SimpleProfitDisplayProps> = ({ result
           <span className="font-medium text-gray-200">{formatCurrency(results.gstAmount)}</span>
         </div>
         
-        {/* Sale Price moved here */}
-        <div className="flex justify-between items-center py-3 bg-gray-700 rounded-lg px-4">
+        {/* Sale Price */}
+        <div className="flex justify-between items-center py-3 bg-gray-700 rounded-lg px-4 mt-4">
           <span className="text-lg font-bold text-gray-100">Sale Price</span>
           <span className="text-2xl font-bold text-blue-400">{formatCurrency(results.total)}</span>
+        </div>
+
+        {/* Profit Margin Percentage */}
+        <div className="flex justify-between items-center py-2 px-4">
+          <span className="text-sm text-gray-400">Profit Margin:</span>
+          <span className="text-lg font-bold text-green-400">{results.grossProfitPercentage.toFixed(1)}%</span>
         </div>
       </div>
     </div>
