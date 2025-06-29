@@ -51,16 +51,6 @@ export const SimpleProfitDisplay: React.FC<SimpleProfitDisplayProps> = ({ result
           <span className="font-medium text-gray-200 text-center">{formatCurrency(results.totalCost * 0.65)}</span>
           <span className="font-medium text-green-400 text-center">{formatCurrency(results.subtotal * 0.6)}</span>
         </div>
-
-        {/* Profit Row */}
-        <div className="grid grid-cols-3 gap-4 py-2 border-b border-gray-700 bg-gray-750 rounded-lg px-3">
-          <span className="text-green-400 font-semibold flex items-center">
-            <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-            Profit
-          </span>
-          <span className="font-bold text-gray-400 text-center">—</span>
-          <span className="font-bold text-green-400 text-center">{formatCurrency(results.grossProfit)}</span>
-        </div>
       </div>
 
       {/* Additional Details */}
@@ -80,10 +70,10 @@ export const SimpleProfitDisplay: React.FC<SimpleProfitDisplayProps> = ({ result
           <span className="text-2xl font-bold text-blue-400">{formatCurrency(results.total)}</span>
         </div>
 
-        {/* Profit Margin Percentage */}
-        <div className="flex justify-between items-center py-2 px-4">
-          <span className="text-sm text-gray-400">Profit Margin:</span>
-          <span className="text-lg font-bold text-green-400">{results.grossProfitPercentage.toFixed(1)}%</span>
+        {/* Profit - moved below Sale Price */}
+        <div className="flex justify-between items-center py-3 bg-green-900/30 rounded-lg px-4 border border-green-500/30">
+          <span className="text-lg font-bold text-green-400">Profit</span>
+          <span className="text-2xl font-bold text-green-400">{formatCurrency(results.grossProfit)}</span>
         </div>
       </div>
     </div>
